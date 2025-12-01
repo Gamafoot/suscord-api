@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  app:
+    container_name: chat-app
+    command: bash -c "/app/src/migrate && /app/src/main"
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - 8000:8000
+    environment:
+    - CONFIG_PATH=../config/default.yaml
+    networks:
+      - postgres
+
+networks:
+  postgres:
+    external: true

@@ -1,0 +1,39 @@
+listen:
+  port: 8000
+
+database:
+  url: postgres://postgres:pass@localhost:5432/suscord
+
+hash:
+  salt: cy@$N8f2r\g{3@)rj52
+
+auth:
+  secret_key: o!5(U0Ixnln~p9?V|ad(^!J#sygxbECrgHg#K<-
+
+cors:
+  origins:
+    - "http://localhost:8000"
+    - "http://127.0.0.1:8000"
+  methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "PATCH"
+    - "DELETE"
+  headers:
+    - "Origin"
+    - "Content-Type"
+    - "Authorization"
+
+media:
+  max_file_size: 734003200
+  allowed_types:
+    - ".mp4"
+    - ".png"
+    - ".jpg"
+  root_folder: assets/media
+  root_url: /media
+
+static:
+  root_folder: assets/static
+  root_url: /static

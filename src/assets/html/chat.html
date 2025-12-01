@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suscord</title>
+    <script defer src="/static/js/alpine.min.js"></script>
+    <!-- <link rel="stylesheet" href="/static/css/style.css"> -->
+    <style>
+        :root {
+            --discord-bg: #36393f;
+            --discord-dark: #2f3136;
+            --discord-darker: #292b2f;
+            --discord-success: #43b581;
+            --discord-danger: #f04747;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Whitney', sans-serif;
+            background: #000;
+            color: white;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            background: var(--discord-bg);
+        }
+
+        .servers-sidebar {
+            width: 72px;
+            background: var(--discord-darker);
+            padding: 12px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .server-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #5865F2;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .server-icon.active {
+            border-radius: 16px;
+        }
+
+        .server-separator {
+            height: 2px;
+            width: 32px;
+            background: #42454a;
+            margin: 8px 0;
+        }
+
+        .channels-sidebar {
+            width: 240px;
+            background: var(--discord-dark);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .search-box {
+            margin: 8px 16px;
+            background: #202225;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #72767d;
+        }
+
+        .chats-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 2px 8px;
+        }
+
+        .chat-item:hover,
+        .chat-item.active {
+            background: #3a3c43;
+        }
+
+        .chat-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #5865F2;
+            position: relative;
+            margin-right: 12px;
+        }
+
+        .chat-type-indicator {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #43b581;
+            border: 3px solid var(--discord-dark);
+        }
+
+        .type-group {
+            background: #7289da;
+        }
+
+        .chat-info {
+            flex: 1;
+        }
+
+        .chat-name {
+            font-weight: 600;
+        }
+
+        .chat-last-message {
+            font-size: 0.8em;
+            color: #999;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--discord-bg);
+            position: relative;
+        }
+
+        .chat-header {
+            padding: 16px;
+            background: var(--discord-dark);
+            border-bottom: 1px solid #292b2f;
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-header-icon {
+            margin-right: 8px;
+            font-size: 1.4em;
+        }
+
+        .chat-header-title {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .chat-messages {
+            position: absolute;
+            top: 73px;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            overflow-y: auto;
+            padding: 16px;
+            padding-bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            position: relative;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .message-actions {
+            position: absolute;
+            top: 0;
+            right: 0;
+            opacity: 0;
+            display: flex;
+            gap: 4px;
+            background: var(--discord-bg);
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .message-action {
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+
+        .message-action:hover {
+            background: var(--discord-dark);
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #5865F2;
+            margin-right: 16px;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .message-author {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .message-timestamp {
+            font-size: 0.75em;
+            color: #72767d;
+        }
+
+        .message-text {
+            word-break: break-word;
+            margin-top: 10px;
+        }
+
+        .chat-input-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 0px;
+            background: var(--discord-dark);
+            z-index: 10;
+        }
+
+        .chat-input {
+            display: flex;
+            align-items: center;
+            background: #40444b;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .chat-input-textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            resize: none;
+            font-size: 1em;
+        }
+
+        .chat-input-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-button {
+            cursor: pointer;
+            font-size: 1.4em;
+            margin-right: 8px;
+        }
+
+        .members-sidebar {
+            width: 240px;
+            background: #2f3136;
+            padding: 16px;
+        }
+
+        .members-title {
+            font-size: 0.8em;
+            color: #72767d;
+            margin-bottom: 16px;
+        }
+
+        .member-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .member-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #5865F2;
+            position: relative;
+            margin-right: 12px;
+        }
+
+        .status-indicator {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #43b581;
+            border: 3px solid #2f3136;
+        }
+
+        .status-online {
+            background: #43b581;
+        }
+
+        .call-container {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .call-window {
+            width: 800px;
+            height: 600px;
+            background: #36393f;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .call-header {
+            padding: 16px;
+            background: #292b2f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .call-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .call-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #5865F2;
+        }
+
+        .call-details {
+            color: white;
+        }
+
+        .call-name {
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+
+        .call-status {
+            color: #43b581;
+        }
+
+        .call-controls {
+            display: flex;
+            gap: 16px;
+        }
+
+        .call-button {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #40444b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.4em;
+        }
+
+        .end-call {
+            background: var(--discord-danger) !important;
+        }
+
+        .call-content {
+            flex: 1;
+            background: #1e1e1e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.4em;
+        }
+
+        .remote-video,
+        .local-video {
+            width: 200px;
+            height: 200px;
+            background: #000;
+            border-radius: 8px;
+        }
+
+        .local-video {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2f3136;
+            padding: 12px 24px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            animation: notif 4s forwards;
+        }
+
+        @keyframes notif {
+
+            0%,
+            100% {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+
+            10%,
+            90% {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div x-data="discordApp()" class="app-container">
+        <!-- Сайдбар серверов -->
+        <div class="servers-sidebar">
+            <div class="server-icon active">
+                <span>DM</span>
+            </div>
+            <div class="server-separator"></div>
+            <template x-for="server in servers" :key="server.id">
+                <div class="server-icon" :class="{ active: activeServer === server.id }"
+                    @click="activeServer = server.id">
+                    <span x-text="server.name.charAt(0)"></span>
+                </div>
+            </template>
+        </div>
+
+        <!-- Сайдбар чатов -->
+        <div class="channels-sidebar">
+            <div class="sidebar-header">
+                <span>Чаты</span>
+                <span @click="createNewChat">+</span>
+            </div>
+            <div class="search-box">Поиск чатов</div>
+            <div class="chats-list">
+                <template x-for="chat in chats" :key="chat.id">
+                    <div class="chat-item" :class="{ active: activeChat === chat.id }" @click="selectChat(chat.id)">
+                        <div class="chat-avatar">
+                            <img :src="chat.avatar_path" style="width: 100%;">
+                            <div class="chat-type-indicator" :class="'type-' + chat.type"></div>
+                        </div>
+                        <div class="chat-info">
+                            <div class="chat-name" x-text="chat.name"></div>
+                            <div class="chat-last-message" x-text="getLastMessage(chat.id) || 'Нет сообщений'"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Основная область чата -->
+        <div class="chat-area" x-show="activeChat">
+            <div class="chat-header">
+                <div class="chat-header-info">
+                    <!-- <div class="chat-header-icon">
+                        <template x-if="getActiveChat()?.type === 'group'">#</template>
+                        <template x-if="getActiveChat()?.type === 'private'">👤</template>
+                    </div> -->
+                    <div class="chat-header-title" x-text="getActiveChatName()"></div>
+                    <div class="connection-status" x-show="isConnected"
+                        style="margin-left: 10px; color: var(--discord-success);">
+                        ●
+                    </div>
+                    <div class="connection-status" x-show="!isConnected"
+                        style="margin-left: 10px; color: var(--discord-danger);">
+                        ●
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="messages-container" @scroll="onScroll">
+                <!-- Messages -->
+                <template x-for="message in messages" :key="message.id">
+                    <div class="message">
+                        <img class="message-avatar" :src="message.avatar_path"></img>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <div class="message-author" x-text="message.username"></div>
+                                <div class="message-timestamp" x-text="formatTime(message.timestamp)"></div>
+                            </div>
+                            <div class="message-text" x-text="message.content"></div>
+                        </div>
+                        <div class="message-actions" x-show="currentUser && message.user_id === currentUser.id">
+                            <div class="message-action" @click="editMessage(message)" title="Редактировать">✏️</div>
+                            <div class="message-action" @click="deleteMessage(message.id)" title="Удалить">🗑️</div>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="loadingMessages" style="text-align: center; color: #72767d; padding: 20px;">
+                    Загрузка...
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div for="message-textarea" class="chat-input" x-data="{ shiftPressed: false }">
+                    <div class="chat-button" title="Добавить файл">+
+                    </div>
+                    <textarea id="message-textarea" class="chat-input-textarea" placeholder="Написать сообщение..."
+                        x-model="newMessage" @keydown.shift="shiftPressed = true" @keyup.shift="shiftPressed = false"
+                        @keydown.enter.prevent="
+			if (shiftPressed) {
+				$event.target.value = $event.target.value + '\n'
+			}
+			sendMessage()" rows="1"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Правая панель участников -->
+        <div class="members-sidebar" x-show="activeChat">
+            <div class="members-title">УЧАСТНИКИ — <span x-text="onlineMembers.length"></span></div>
+            <template x-for="member in onlineMembers" :key="member.client_id || member.id">
+                <div class="member-item">
+                    <div class="member-avatar">
+                        <div class="status-indicator status-online"></div>
+                    </div>
+                    <div class="member-info">
+                        <div class="member-name" x-text="member.username || member.login"></div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Окно звонка (заглушка) -->
+        <template x-if="isCallActive">
+            <div class="call-container">
+                <div class="call-window">
+                    <div class="call-header">
+                        <div class="call-info">
+                            <div class="call-avatar"></div>
+                            <div class="call-details">
+                                <div class="call-name" x-text="getActiveFriendName()">Звонок</div>
+                                <div class="call-status">В звонке</div>
+                            </div>
+                        </div>
+                        <div class="call-controls">
+                            <div class="call-button mute" @click="toggleMute">
+                                <span x-text="isMuted ? '🎤' : '🔇'"></span>
+                            </div>
+                            <div class="call-button video" @click="toggleVideo">
+                                <span x-text="isVideoOn ? '📹' : '📷'"></span>
+                            </div>
+                            <div class="call-button end-call" @click="endCall">📞</div>
+                        </div>
+                    </div>
+                    <div class="call-content">
+                        <div>Звонки пока не реализованы на фронте</div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Уведомление -->
+        <template x-if="notification.show">
+            <div class="notification">
+                <div class="notification-icon" x-text="notification.icon"></div>
+                <div x-text="notification.message"></div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function discordApp() {
+            return {
+                servers: [{ id: 1, name: "Suscord" }],
+                activeServer: 1,
+                chats: [],
+                activeChat: null,
+                chatMessages: {},
+                chatStates: {},
+                userCache: {},
+                currentUser: null,
+                onlineMembers: [],
+                newMessage: '',
+                ws: null,
+                isConnected: false,
+                loadingMessages: false,
+                MESSAGE_WINDOW_SIZE: 200,
+
+                isCallActive: false,
+                incomingCall: null,
+                isMuted: false,
+                isVideoOn: false,
+
+                notification: { show: false, message: '', icon: 'ℹ️' },
+
+                init() {
+                    window.servers = this.servers;
+                    this.loadCurrentUser();
+                    this.loadChats();
+                    this.connectWebSocket();
+                },
+
+                async loadChats() {
+                    try {
+                        const res = await fetch('/api/v1/chats');
+                        if (res.ok) {
+                            this.chats = [...(await res.json())];
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                get messages() {
+                    return this.chatMessages[this.activeChat] || [];
+                },
+
+                async selectChat(chatId) {
+                    if (this.activeChat === chatId) return;
+                    this.leaveRoom();
+                    this.activeChat = chatId;
+                    this.onlineMembers = [];
+
+                    if (!this.chatMessages[chatId]) {
+                        this.chatMessages[chatId] = [];
+                        this.chatStates[chatId] = {
+                            oldestMessageId: null,
+                            hasMoreMessages: true,
+                            isInitialLoad: true
+                        };
+                        await this.loadLatestMessages();
+                    }
+
+                    this.joinRoom(chatId);
+                    setTimeout(() => this.scrollToBottom(), 100);
+                },
+
+                async loadLatestMessages() {
+                    if (!this.activeChat) return;
+                    this.loadingMessages = true;
+                    try {
+                        const url = `/api/v1/chats/${this.activeChat}/messages?chat_id=${this.activeChat}&limit=50`;
+                        const res = await fetch(url);
+                        if (res.ok) {
+                            const msgs = await res.json();
+                            if (msgs.length > 0) {
+                                const processedMsgs = await this.processMessages(msgs.reverse());
+                                this.chatMessages[this.activeChat] = processedMsgs;
+                                this.chatStates[this.activeChat].oldestMessageId = processedMsgs[0].id;
+                                this.chatStates[this.activeChat].hasMoreMessages = msgs.length === 50;
+                                this.chatStates[this.activeChat].isInitialLoad = false;
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                    this.loadingMessages = false;
+                },
+
+                async loadOlderMessages() {
+                    const state = this.chatStates[this.activeChat];
+                    if (!this.activeChat || !state?.hasMoreMessages || this.loadingMessages) return;
+
+                    this.loadingMessages = true;
+                    const container = document.getElementById('messages-container');
+                    const oldScrollHeight = container.scrollHeight;
+
+                    try {
+                        let url = `/api/v1/chats/${this.activeChat}/messages?limit=50`;
+                        if (state.oldestMessageId) url += `&last_message_id=${state.oldestMessageId}`;
+
+                        const res = await fetch(url);
+                        if (res.ok) {
+                            const msgs = await res.json();
+                            if (msgs.length > 0) {
+                                const processedMsgs = await this.processMessages(msgs.reverse());
+                                state.oldestMessageId = processedMsgs[0].id;
+                                state.hasMoreMessages = msgs.length === 50;
+
+                                this.chatMessages[this.activeChat] = [...processedMsgs, ...this.chatMessages[this.activeChat]];
+                                this.trimMessages();
+
+                                setTimeout(() => {
+                                    const newScrollHeight = container.scrollHeight;
+                                    container.scrollTop = newScrollHeight - oldScrollHeight;
+                                }, 0);
+                            } else {
+                                state.hasMoreMessages = false;
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                    this.loadingMessages = false;
+                },
+
+                trimMessages() {
+                    const messages = this.chatMessages[this.activeChat];
+                    if (messages && messages.length > this.MESSAGE_WINDOW_SIZE) {
+                        this.chatMessages[this.activeChat] = messages.slice(-this.MESSAGE_WINDOW_SIZE);
+                        this.chatStates[this.activeChat].hasMoreMessages = true;
+                    }
+                },
+
+                onScroll(e) {
+                    if (e.target.scrollTop < 100) {
+                        this.loadOlderMessages();
+                    }
+                },
+
+                scrollToBottom() {
+                    const container = document.getElementById('messages-container');
+                    if (container) container.scrollTop = container.scrollHeight;
+                },
+
+                async sendMessage() {
+                    if (!this.newMessage.trim() || !this.activeChat) return;
+                    const content = this.newMessage;
+                    this.newMessage = '';
+
+                    try {
+                        const res = await fetch(`/api/v1/chats/${this.activeChat}/messages`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                content: content
+                            })
+                        });
+
+                        if (!res.ok) {
+                            this.showNotification('Ошибка отправки сообщения', '❌');
+                            this.newMessage = content;
+                        } else {
+                            setTimeout(() => this.scrollToBottom(), 100);
+                        }
+                    } catch (e) {
+                        console.error('Send message error:', e);
+                        this.showNotification('Ошибка отправки сообщения', '❌');
+                        this.newMessage = content;
+                    }
+                },
+
+                getActiveChat() {
+                    return this.chats.find(c => c.id === this.activeChat);
+                },
+
+                getActiveChatName() {
+                    const chat = this.getActiveChat();
+                    return chat ? chat.name : '';
+                },
+
+                getActiveFriendName() {
+                    const chat = this.getActiveChat();
+                    return chat ? chat.name : 'Пользователь';
+                },
+
+                getLastMessage(chatId) {
+                    // Заглушка, можно реализовать кэширование последних сообщений
+                    return '';
+                },
+
+                formatTime(ts) {
+                    if (!ts) return '';
+                    const date = new Date(ts);
+                    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                },
+
+                // WebSocket
+                connectWebSocket() {
+                    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    this.ws = new WebSocket(`${protocol}//${location.host}/ws?session=${this.getCookie('session')}`);
+
+                    this.ws.onopen = () => {
+                        this.isConnected = true;
+                        this.showNotification('Подключено', '✅');
+                    };
+
+                    this.ws.onclose = () => {
+                        this.isConnected = false;
+                        this.showNotification('Отключено от сервера', '🔴');
+                        setTimeout(() => this.connectWebSocket(), 3000);
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        const msg = JSON.parse(event.data);
+                        this.handleWsMessage(msg);
+                    };
+                },
+
+                async handleWsMessage(msg) {
+                    switch (msg.type) {
+                        case 'message':
+                            const chatId = msg.data.chat_id;
+                            if (!this.chatMessages[chatId]) {
+                                this.chatMessages[chatId] = [];
+                                this.chatStates[chatId] = {
+                                    oldestMessageId: null,
+                                    hasMoreMessages: true,
+                                    isInitialLoad: true
+                                };
+                            }
+
+                            const processedMsg = await this.processMessage(msg.data);
+                            this.chatMessages[chatId].push(processedMsg);
+                            this.trimMessages();
+                            break;
+
+                        case 'user_joined':
+                            if (!this.onlineMembers.find(m => m.client_id === msg.data.client_id)) {
+                                this.onlineMembers.push(msg.data);
+                            }
+                            break;
+
+                        case 'user_left':
+                            this.onlineMembers = this.onlineMembers.filter(m => m.client_id !== msg.data.client_id);
+                            break;
+
+                        case 'join_room_ok':
+                            console.log('Joined room', msg.data.room_id);
+                            break;
+
+                        default:
+                            console.log('WS:', msg);
+                    }
+                },
+
+                joinRoom(roomId) {
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            type: "join_room",
+                            data: { room_id: roomId }
+                        }));
+                        // Запросим участников
+                        this.ws.send(JSON.stringify({
+                            type: "get_room_clients",
+                            data: { room_id: roomId }
+                        }));
+                    }
+                },
+
+                leaveRoom() {
+                    if (this.activeChat && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            type: "leave_room",
+                            data: { room_id: this.activeChat }
+                        }));
+                    }
+                },
+
+                getCookie(name) {
+                    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+                    return match ? match[2] : '';
+                },
+
+                showNotification(message, icon = 'ℹ️') {
+                    this.notification = { show: true, message, icon };
+                    setTimeout(() => this.notification.show = false, 4000);
+                },
+
+                // Звонки (заглушка)
+                startCall() { this.isCallActive = true; },
+                endCall() { this.isCallActive = false; },
+                toggleMute() { this.isMuted = !this.isMuted; },
+                toggleVideo() { this.isVideoOn = !this.isVideoOn; },
+                createNewChat() { alert('Создание чата пока не реализовано'); },
+
+                async loadCurrentUser() {
+                    try {
+                        const res = await fetch('/api/v1/users/me');
+                        if (res.ok) {
+                            this.currentUser = await res.json();
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                async deleteMessage(messageId) {
+                    if (!confirm('Удалить сообщение?')) return;
+                    try {
+                        const res = await fetch(`/api/v1/messages/${messageId}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            const messages = this.chatMessages[this.activeChat];
+                            const index = messages.findIndex(m => m.id === messageId);
+                            if (index !== -1) messages.splice(index, 1);
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                editMessage(message) {
+                    const newContent = prompt('Редактировать сообщение:', message.content);
+                    if (!newContent || newContent === message.content) return;
+                    this.updateMessage(message.id, newContent);
+                },
+
+                async updateMessage(messageId, content) {
+                    try {
+                        const res = await fetch(`/api/v1/messages/${messageId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ "content": content })
+                        });
+                        if (res.ok) {
+                            const messages = this.chatMessages[this.activeChat];
+                            const message = messages.find(m => m.id === messageId);
+                            if (message) message.content = content;
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                async getUser(userId) {
+                    if (!userId) {
+                        return { login: 'Unknown', avatar_path: '' };
+                    }
+
+                    if (this.userCache[userId]) {
+                        return this.userCache[userId];
+                    }
+
+                    try {
+                        const res = await fetch(`/api/v1/users/${userId}`);
+                        if (res.ok) {
+                            const user = await res.json();
+                            this.userCache[userId] = user;
+                            return user;
+                        }
+                    } catch (e) {
+                        console.error('Get user error:', e);
+                    }
+
+                    return { username: 'Unknown', avatar_path: '' };
+                },
+
+                async processMessage(msgData) {
+                    if (!msgData.user_id) {
+                        console.warn('Message without user_id:', msgData);
+                        return {
+                            id: msgData.id,
+                            username: 'Unknown',
+                            content: msgData.content,
+                            timestamp: msgData.created_at,
+                            avatar_path: ''
+                        };
+                    }
+
+                    const user = await this.getUser(msgData.user_id);
+                    return {
+                        id: msgData.id,
+                        user_id: msgData.user_id,
+                        username: user.username,
+                        content: msgData.content,
+                        timestamp: msgData.created_at,
+                        avatar_path: user.avatar_path
+                    };
+                },
+
+                async processMessages(messages) {
+                    const processed = [];
+                    for (const msg of messages) {
+                        processed.push(await this.processMessage(msg));
+                    }
+                    return processed;
+                }
+            };
+        }
+    </script>
+</body>
+
+</html>
