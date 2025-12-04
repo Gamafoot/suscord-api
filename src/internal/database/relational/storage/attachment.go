@@ -58,7 +58,7 @@ func (s *attachmentStorage) Create(ctx context.Context, messageID uint, data *en
 }
 
 func (s *attachmentStorage) Delete(ctx context.Context, attachmentID uint) error {
-	if err := s.db.WithContext(ctx).Delete(&entity.Attachment{ID: attachmentID}).Error; err != nil {
+	if err := s.db.WithContext(ctx).Delete(&model.Attachment{ID: attachmentID}).Error; err != nil {
 		return pkgErrors.WithStack(err)
 	}
 	return nil
