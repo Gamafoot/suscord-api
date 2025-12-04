@@ -5,12 +5,14 @@ import (
 )
 
 type Message struct {
-	ID        uint
-	ChatID    uint
-	UserID    uint
-	Content   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          uint
+	ChatID      uint
+	UserID      uint
+	Type        string
+	Content     string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Attachments []*Attachment
 }
 
 type GetMessagesInput struct {
@@ -21,6 +23,7 @@ type GetMessagesInput struct {
 }
 
 type CreateMessage struct {
+	Type    string
 	Content string
 }
 

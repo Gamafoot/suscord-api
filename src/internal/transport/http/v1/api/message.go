@@ -49,20 +49,13 @@ func (h *handler) GetChatMessages(c echo.Context) error {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
-	repsMessages := make([]*dto.MessageResponse, len(messages))
+	result := make([]*dto.MessageResponse, len(messages))
 
 	for i, message := range messages {
-		repsMessages[i] = &dto.MessageResponse{
-			ID:        message.ID,
-			ChatID:    message.ChatID,
-			UserID:    message.UserID,
-			Content:   message.Content,
-			CreatedAt: message.CreatedAt,
-			UpdatedAt: message.UpdatedAt,
-		}
+		result[i] = dto.NewMessageReponse(message)
 	}
 
-	return c.JSON(http.StatusOK, repsMessages)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *handler) CreateMessage(c echo.Context) error {
@@ -83,19 +76,35 @@ func (h *handler) CreateMessage(c echo.Context) error {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
+	form, err := c.MultipartForm()
+	if err != nil {
+		if errors.Is(err, http.ErrNotMultipart) {
+			return utils.NewErrorResponse(c, http.StatusBadRequest, "request does not contain multipart form")
+		}
+		return err
+	}
+
+	files := form.File["file"]
+
+	data := &entity.CreateMessage{
+		Type:    reqInput.Type,
+		Content: reqInput.Content,
+	}
+
 	message, err := h.service.Message().Create(
 		c.Request().Context(),
 		userID,
 		chatID,
-		&entity.CreateMessage{
-			Content: reqInput.Content,
-		},
+		data,
+		files,
 	)
 	if err != nil {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, message)
+	messageResp := dto.NewMessageReponse(message)
+
+	return c.JSON(http.StatusOK, messageResp)
 }
 
 func (h *handler) UpdateMessage(c echo.Context) error {
@@ -116,16 +125,21 @@ func (h *handler) UpdateMessage(c echo.Context) error {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
+	data := &entity.UpdateMessage{
+		Content: reqInput.Content,
+	}
+
 	message, err := h.service.Message().Update(
 		c.Request().Context(),
 		userID,
 		messageID,
-		&entity.UpdateMessage{
-			Content: reqInput.Content,
-		},
+		data,
 	)
 	if err != nil {
-		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
+		if errors.Is(err, domainErrors.ErrRecordNotFound) {
+			return c.NoContent(http.StatusNotFound)
+		}
+		return err
 	}
 
 	return c.JSON(http.StatusOK, message)
@@ -144,7 +158,7 @@ func (h *handler) DeleteMessage(c echo.Context) error {
 		if errors.Is(err, domainErrors.ErrRecordNotFound) {
 			return c.NoContent(http.StatusNotFound)
 		}
-		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
+		return err
 	}
 
 	return c.NoContent(http.StatusOK)

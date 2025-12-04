@@ -5,6 +5,6 @@ type Storage interface {
 	Chat() ChatStorage
 	ChatMember() ChatMemberStorage
 	Message() MessageStorage
-	MessageAttachment() MessageAttachmentStorage
+	Attachment() AttachmentStorage
 	Session() SessionStorage
 }

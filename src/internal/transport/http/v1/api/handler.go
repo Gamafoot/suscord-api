@@ -40,4 +40,5 @@ func (h *handler) InitRoutes(route *echo.Group) {
 	h.InitChatRoutes(requiredAuth)
 	h.InitChatMemberRoutes(requiredAuth)
 	h.InitMessageRoutes(requiredAuth)
+	h.InitAttachmentRoutes(requiredAuth)
 }

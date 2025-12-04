@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"suscord/internal/config"
 	"suscord/internal/domain/eventbus"
 	"suscord/internal/domain/service"
@@ -22,7 +21,7 @@ import (
 )
 
 type httpServer struct {
-	config  *config.Config
+	cfg     *config.Config
 	echo    *echo.Echo
 	service service.Service
 	storage storage.Storage
@@ -36,15 +35,16 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c 
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
-func NewHttpServer(config *config.Config, services service.Service, storage storage.Storage, eventbus eventbus.Bus) *httpServer {
+func NewHttpServer(cfg *config.Config, services service.Service, storage storage.Storage, eventbus eventbus.Bus) *httpServer {
 	server := &httpServer{
-		config:  config,
+		cfg:     cfg,
 		echo:    echo.New(),
 		service: services,
 		storage: storage,
 	}
 
-	server.echo.Static("/static", "assets/static")
+	server.echo.Static(server.cfg.Static.RootUrl, server.cfg.Static.RootFolder)
+	server.echo.Static(server.cfg.Media.RootUrl, server.cfg.Media.RootFolder)
 
 	template := &TemplateRenderer{
 		templates: template.Must(template.ParseGlob("assets/html/*.html")),
@@ -54,22 +54,32 @@ func NewHttpServer(config *config.Config, services service.Service, storage stor
 
 	_customMiddleware := customMiddleware.NewMiddleware(storage)
 
-	server.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: server.config.CORS.Origins,
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
-	}))
-	server.echo.Use(customMiddleware.Logger)
+	// server.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+	// 	AllowOrigins: server.cfg.CORS.Origins,
+	// 	AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+	// }))
+	// server.echo.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+	// 	Timeout: server.cfg.Server.Timeout,
+	// }))
 
 	handlerV1WEB := v1WEB.NewHandler(
-		server.config,
+		server.cfg,
 		server.service,
 		server.storage,
 		_customMiddleware,
 	)
-	handlerV1WEB.InitRoutes(server.echo.Group(""))
+
+	route := server.echo.Group(
+		"",
+		middleware.BodyLimit(server.cfg.Media.MaxSize),
+		customMiddleware.Logger,
+		_customMiddleware.AllowedFileExtentions(),
+	)
+
+	handlerV1WEB.InitRoutes(route)
 
 	handlerV1API := v1API.NewHandler(
-		server.config,
+		server.cfg,
 		server.service,
 		server.storage,
 		eventbus,
@@ -82,7 +92,7 @@ func NewHttpServer(config *config.Config, services service.Service, storage stor
 
 func (s *httpServer) Run() error {
 	host := flag.String("host", "", "Пример -host=0.0.0.0")
-	addr := fmt.Sprintf("%s:%s", *host, s.config.Server.Port)
+	addr := fmt.Sprintf("%s:%s", *host, s.cfg.Server.Port)
 
 	if err := s.echo.Start(addr); err != nil {
 		return err

@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 	"suscord/internal/config"
-	"suscord/internal/database"
-	"suscord/internal/database/gorm/model"
+	"suscord/internal/database/relational"
+	"suscord/internal/database/relational/model"
 
 	pkgErrors "github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -19,7 +19,7 @@ var tables = []interface{}{
 	model.Chat{},
 	model.ChatMember{},
 	model.Message{},
-	model.MessageAttachment{},
+	model.Attachment{},
 	model.Friend{},
 }
 
@@ -28,7 +28,7 @@ func main() {
 
 	cfg := config.GetConfig()
 
-	db, err := database.NewConnect(cfg.Database.URL)
+	db, err := relational.NewConnect(cfg.Database.URL, cfg.Database.LogLevel)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %+v", err)
 	}

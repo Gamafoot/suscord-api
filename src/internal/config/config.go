@@ -13,10 +13,11 @@ type Config struct {
 	Server struct {
 		Port    string        `yaml:"port" env-default:"8000"`
 		Timeout time.Duration `yaml:"timeout" env-default:"5s"`
-	} `yaml:"listen"`
+	} `yaml:"server"`
 
 	Database struct {
-		URL string `env:"url" env-required:"true"`
+		URL      string `env:"url" env-required:"true"`
+		LogLevel string `env:"url"`
 	} `yaml:"database"`
 
 	Hash struct {
@@ -28,10 +29,10 @@ type Config struct {
 	} `yaml:"cors"`
 
 	Media struct {
-		MaxFileSize       int64    `yaml:"max_file_size" env-default:"734003200"`
 		AllowedExtentions []string `yaml:"allowed_types" env-required:"true"`
 		RootFolder        string   `yaml:"root_folder" env-required:"true"`
 		RootUrl           string   `yaml:"root_url" env-required:"true"`
+		MaxSize           string   `yaml:"max_size" env-default:"500M"`
 	} `yaml:"media"`
 
 	Static struct {

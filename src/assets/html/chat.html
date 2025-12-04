@@ -175,7 +175,7 @@
         .chat-messages {
             position: absolute;
             top: 73px;
-            bottom: 0;
+            bottom: 20px;
             left: 0;
             right: 0;
             overflow-y: auto;
@@ -189,6 +189,13 @@
         .message {
             display: flex;
             position: relative;
+            padding: 8px 16px;
+            margin: 0 -16px;
+            border-radius: 4px;
+        }
+
+        .message:hover {
+            background: rgba(4, 4, 5, 0.07);
         }
 
         .message:hover .message-actions {
@@ -267,6 +274,7 @@
             background: #40444b;
             border-radius: 8px;
             padding: 12px;
+            cursor: text;
         }
 
         .chat-input-textarea {
@@ -288,6 +296,17 @@
             cursor: pointer;
             font-size: 1.4em;
             margin-right: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .chat-button:hover {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .chat-button:active {
+            background-color: rgba(0, 0, 0, 0.5);
         }
 
         .members-sidebar {
@@ -436,8 +455,7 @@
         .notification {
             position: fixed;
             bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            right: 20px;
             background: #2f3136;
             padding: 12px 24px;
             border-radius: 8px;
@@ -454,14 +472,158 @@
             0%,
             100% {
                 opacity: 0;
-                transform: translateX(-50%) translateY(20px);
+                transform: translateX(20px);
             }
 
             10%,
             90% {
                 opacity: 1;
-                transform: translateX(-50%) translateY(0);
+                transform: translateX(0);
             }
+        }
+
+        .file-preview {
+            background: #40444b;
+            border-radius: 8px;
+            margin: 8px 16px;
+            padding: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            background: #36393f;
+            border-radius: 6px;
+            padding: 8px;
+            gap: 8px;
+            position: relative;
+        }
+
+        .file-preview-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background: #5865f2;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            font-size: 0.9em;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+        }
+
+        .file-size {
+            font-size: 0.8em;
+            color: #72767d;
+        }
+
+        .file-remove {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 20px;
+            height: 20px;
+            background: #f04747;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .message-attachments {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .attachment {
+            max-width: 400px;
+        }
+
+        .attachment-media {
+            border-radius: 8px;
+            max-width: 100%;
+            max-height: 300px;
+        }
+
+        .attachment-file {
+            background: #2f3136;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #40444b;
+        }
+
+        .attachment-file-icon {
+            width: 48px;
+            height: 48px;
+            background: #5865f2;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .attachment-file-info {
+            flex: 1;
+        }
+
+        .attachment-file-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .attachment-file-size {
+            font-size: 0.8em;
+            color: #72767d;
+        }
+
+        .attachment-download {
+            background: #5865f2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .attachment-download:hover {
+            background: #4752c4;
+        }
+
+        .file-input {
+            display: none;
         }
     </style>
 </head>
@@ -536,6 +698,39 @@
                                 <div class="message-timestamp" x-text="formatTime(message.timestamp)"></div>
                             </div>
                             <div class="message-text" x-text="message.content"></div>
+                            <div x-show="message.attachments && message.attachments.length > 0"
+                                class="message-attachments">
+                                <template x-for="attachment in message.attachments" :key="attachment.id">
+                                    <div class="attachment">
+                                        <div
+                                            x-show="attachment.mime_type && (attachment.mime_type.startsWith('image/') || isGif(attachment.mime_type))">
+                                            <img class="attachment-media" :src="attachment.file_path"
+                                                :alt="attachment.file_path">
+                                        </div>
+                                        <div x-show="attachment.mime_type && attachment.mime_type.startsWith('video/')">
+                                            <video class="attachment-media" controls
+                                                :src="attachment.file_path"></video>
+                                        </div>
+                                        <div x-show="attachment.mime_type && attachment.mime_type.startsWith('audio/')">
+                                            <audio controls style="width: 100%;" :src="attachment.file_path"></audio>
+                                        </div>
+                                        <div
+                                            x-show="!attachment.mime_type || (!attachment.mime_type.startsWith('image/') && !attachment.mime_type.startsWith('video/') && !attachment.mime_type.startsWith('audio/') && !isGif(attachment.mime_type))">
+                                            <div class="attachment-file">
+                                                <div class="attachment-file-icon">📄</div>
+                                                <div class="attachment-file-info">
+                                                    <div class="attachment-file-name"
+                                                        x-text="attachment.file_path.split('/').pop()"></div>
+                                                    <div class="attachment-file-size"
+                                                        x-text="formatFileSize(attachment.file_size)"></div>
+                                                </div>
+                                                <button class="attachment-download"
+                                                    @click="downloadFile(attachment.file_path)">Скачать</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
                         <div class="message-actions" x-show="currentUser && message.user_id === currentUser.id">
                             <div class="message-action" @click="editMessage(message)" title="Редактировать">✏️</div>
@@ -549,11 +744,31 @@
             </div>
 
             <div class="chat-input-container">
-                <div for="message-textarea" class="chat-input" x-data="{ shiftPressed: false }">
-                    <div class="chat-button" title="Добавить файл">+
+                <div x-show="selectedFiles.length > 0" class="file-preview">
+                    <template x-for="(file, index) in selectedFiles" :key="index">
+                        <div class="file-item">
+                            <template x-if="isImageOrVideo(file)">
+                                <img class="file-preview-img" :src="getFilePreview(file)" :alt="file.name">
+                            </template>
+                            <template x-if="!isImageOrVideo(file)">
+                                <div class="file-icon">📄</div>
+                            </template>
+                            <div class="file-info">
+                                <div class="file-name" x-text="file.name"></div>
+                                <div class="file-size" x-text="formatFileSize(file.size)"></div>
+                            </div>
+                            <div class="file-remove" @click="removeFile(index)">×</div>
+                        </div>
+                    </template>
+                </div>
+                <div for="message-textarea" class="chat-input" x-data="{ shiftPressed: false }" @click="$refs.messageTextarea.focus()">
+                    <input type="file" class="file-input" id="file-input" multiple @change="handleFileSelect">
+                    <div class="chat-button" title="Добавить файл" @click="$refs.fileInput.click()">
+                        +
                     </div>
+                    <input type="file" x-ref="fileInput" style="display: none" multiple @change="handleFileSelect">
                     <textarea id="message-textarea" class="chat-input-textarea" placeholder="Написать сообщение..."
-                        x-model="newMessage" @keydown.shift="shiftPressed = true" @keyup.shift="shiftPressed = false"
+                        x-model="newMessage" x-ref="messageTextarea" @keydown.shift="shiftPressed = true" @keyup.shift="shiftPressed = false"
                         @keydown.enter.prevent="
 			if (shiftPressed) {
 				$event.target.value = $event.target.value + '\n'
@@ -633,6 +848,7 @@
                 isConnected: false,
                 loadingMessages: false,
                 MESSAGE_WINDOW_SIZE: 200,
+                selectedFiles: [],
 
                 isCallActive: false,
                 incomingCall: null,
@@ -663,7 +879,7 @@
 
                 async selectChat(chatId) {
                     if (this.activeChat === chatId) return;
-                    this.leaveRoom();
+
                     this.activeChat = chatId;
                     this.onlineMembers = [];
 
@@ -677,7 +893,7 @@
                         await this.loadLatestMessages();
                     }
 
-                    this.joinRoom(chatId);
+
                     setTimeout(() => this.scrollToBottom(), 100);
                 },
 
@@ -756,32 +972,96 @@
                 },
 
                 async sendMessage() {
-                    if (!this.newMessage.trim() || !this.activeChat) return;
+                    if ((!this.newMessage.trim() && this.selectedFiles.length === 0) || !this.activeChat) return;
+
                     const content = this.newMessage;
+                    const files = [...this.selectedFiles];
                     this.newMessage = '';
+                    this.selectedFiles = [];
 
                     try {
+                        const formData = new FormData();
+
+                        // Определяем тип сообщения и контент
+                        if (files.length > 0) {
+                            formData.append('type', 'files');
+                            if (content.trim()) {
+                                formData.append('content', content);
+                            }
+                        } else {
+                            formData.append('type', 'message');
+                            formData.append('content', content);
+                        }
+
+                        for (const file of files) {
+                            formData.append('file', file);
+                        }
+
                         const res = await fetch(`/api/v1/chats/${this.activeChat}/messages`, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                content: content
-                            })
+                            body: formData
                         });
 
                         if (!res.ok) {
                             this.showNotification('Ошибка отправки сообщения', '❌');
                             this.newMessage = content;
-                        } else {
-                            setTimeout(() => this.scrollToBottom(), 100);
+                            this.selectedFiles = files;
+                            return;
                         }
+
+                        setTimeout(() => this.scrollToBottom(), 100);
                     } catch (e) {
                         console.error('Send message error:', e);
                         this.showNotification('Ошибка отправки сообщения', '❌');
                         this.newMessage = content;
+                        this.selectedFiles = files;
                     }
+                },
+
+
+
+                handleFileSelect(event) {
+                    const files = Array.from(event.target.files);
+                    this.selectedFiles = [...this.selectedFiles, ...files];
+                    event.target.value = '';
+                },
+
+                removeFile(index) {
+                    this.selectedFiles.splice(index, 1);
+                },
+
+                isImageOrVideo(file) {
+                    return file.type.startsWith('image/') || file.type.startsWith('video/');
+                },
+
+                isGif(mimeType) {
+                    return mimeType === 'image/gif';
+                },
+
+                getFilePreview(file) {
+                    if (file.type.startsWith('image/')) {
+                        return URL.createObjectURL(file);
+                    }
+                    return '';
+                },
+
+                formatFileSize(bytes) {
+                    if (bytes === 0) return '0 Б';
+                    const k = 1024;
+                    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                },
+
+                isMediaFile(mimeType) {
+                    return mimeType && (mimeType.startsWith('image/') || mimeType.startsWith('video/') || mimeType.startsWith('audio/'));
+                },
+
+                downloadFile(filePath) {
+                    const link = document.createElement('a');
+                    link.href = filePath;
+                    link.download = filePath.split('/').pop();
+                    link.click();
                 },
 
                 getActiveChat() {
@@ -844,9 +1124,23 @@
                                 };
                             }
 
-                            const processedMsg = await this.processMessage(msg.data);
+                            // Обрабатываем новую структуру сообщения
+                            const messageData = {
+                                id: msg.data.id,
+                                user_id: msg.data.user_id,
+                                content: msg.data.content,
+                                type: msg.data.type,
+                                timestamp: msg.data.created_at,
+                                attachments: msg.data.attachments || []
+                            };
+
+                            const processedMsg = await this.processMessage(messageData, true);
                             this.chatMessages[chatId].push(processedMsg);
                             this.trimMessages();
+
+                            if (chatId === this.activeChat) {
+                                setTimeout(() => this.scrollToBottom(), 100);
+                            }
                             break;
 
                         case 'user_joined':
@@ -859,37 +1153,14 @@
                             this.onlineMembers = this.onlineMembers.filter(m => m.client_id !== msg.data.client_id);
                             break;
 
-                        case 'join_room_ok':
-                            console.log('Joined room', msg.data.room_id);
-                            break;
+
 
                         default:
                             console.log('WS:', msg);
                     }
                 },
 
-                joinRoom(roomId) {
-                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.send(JSON.stringify({
-                            type: "join_room",
-                            data: { room_id: roomId }
-                        }));
-                        // Запросим участников
-                        this.ws.send(JSON.stringify({
-                            type: "get_room_clients",
-                            data: { room_id: roomId }
-                        }));
-                    }
-                },
 
-                leaveRoom() {
-                    if (this.activeChat && this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.send(JSON.stringify({
-                            type: "leave_room",
-                            data: { room_id: this.activeChat }
-                        }));
-                    }
-                },
 
                 getCookie(name) {
                     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
@@ -901,60 +1172,35 @@
                     setTimeout(() => this.notification.show = false, 4000);
                 },
 
-                // Звонки (заглушка)
-                startCall() { this.isCallActive = true; },
-                endCall() { this.isCallActive = false; },
-                toggleMute() { this.isMuted = !this.isMuted; },
-                toggleVideo() { this.isVideoOn = !this.isVideoOn; },
-                createNewChat() { alert('Создание чата пока не реализовано'); },
-
-                async loadCurrentUser() {
-                    try {
-                        const res = await fetch('/api/v1/users/me');
-                        if (res.ok) {
-                            this.currentUser = await res.json();
-                        }
-                    } catch (e) { console.error(e); }
+                async processMessages(messages) {
+                    const processed = [];
+                    for (const msg of messages) {
+                        processed.push(await this.processMessage(msg));
+                    }
+                    return processed;
                 },
 
-                async deleteMessage(messageId) {
-                    if (!confirm('Удалить сообщение?')) return;
-                    try {
-                        const res = await fetch(`/api/v1/messages/${messageId}`, { method: 'DELETE' });
-                        if (res.ok) {
-                            const messages = this.chatMessages[this.activeChat];
-                            const index = messages.findIndex(m => m.id === messageId);
-                            if (index !== -1) messages.splice(index, 1);
-                        }
-                    } catch (e) { console.error(e); }
-                },
+                async processMessage(msg, isFromWs = false) {
+                    const user = await this.getUser(msg.user_id);
 
-                editMessage(message) {
-                    const newContent = prompt('Редактировать сообщение:', message.content);
-                    if (!newContent || newContent === message.content) return;
-                    this.updateMessage(message.id, newContent);
-                },
-
-                async updateMessage(messageId, content) {
-                    try {
-                        const res = await fetch(`/api/v1/messages/${messageId}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ "content": content })
-                        });
-                        if (res.ok) {
-                            const messages = this.chatMessages[this.activeChat];
-                            const message = messages.find(m => m.id === messageId);
-                            if (message) message.content = content;
-                        }
-                    } catch (e) { console.error(e); }
+                    return {
+                        id: msg.id,
+                        user_id: msg.user_id,
+                        content: msg.content,
+                        type: msg.type || 'message',
+                        timestamp: msg.timestamp || msg.created_at,
+                        username: user?.username || 'Неизвестный пользователь',
+                        avatar_path: user?.avatar_path || '/static/images/default-avatar.png',
+                        attachments: (msg.attachments || []).map(att => ({
+                            id: att.id,
+                            file_path: att.file_path,
+                            file_size: att.file_size,
+                            mime_type: att.mime_type
+                        }))
+                    };
                 },
 
                 async getUser(userId) {
-                    if (!userId) {
-                        return { login: 'Unknown', avatar_path: '' };
-                    }
-
                     if (this.userCache[userId]) {
                         return this.userCache[userId];
                     }
@@ -967,42 +1213,72 @@
                             return user;
                         }
                     } catch (e) {
-                        console.error('Get user error:', e);
+                        console.error('Error loading user:', e);
                     }
-
-                    return { username: 'Unknown', avatar_path: '' };
+                    return null;
                 },
 
-                async processMessage(msgData) {
-                    if (!msgData.user_id) {
-                        console.warn('Message without user_id:', msgData);
-                        return {
-                            id: msgData.id,
-                            username: 'Unknown',
-                            content: msgData.content,
-                            timestamp: msgData.created_at,
-                            avatar_path: ''
-                        };
+                async loadCurrentUser() {
+                    try {
+                        const res = await fetch('/api/v1/users/me');
+                        if (res.ok) {
+                            this.currentUser = await res.json();
+                        }
+                    } catch (e) {
+                        console.error('Error loading current user:', e);
                     }
-
-                    const user = await this.getUser(msgData.user_id);
-                    return {
-                        id: msgData.id,
-                        user_id: msgData.user_id,
-                        username: user.username,
-                        content: msgData.content,
-                        timestamp: msgData.created_at,
-                        avatar_path: user.avatar_path
-                    };
                 },
 
-                async processMessages(messages) {
-                    const processed = [];
-                    for (const msg of messages) {
-                        processed.push(await this.processMessage(msg));
+                createNewChat() {
+                    this.showNotification('Создание чатов пока не реализовано', 'ℹ️');
+                },
+
+                async editMessage(message) {
+                    const newContent = prompt('Редактировать сообщение:', message.content);
+                    if (newContent && newContent !== message.content) {
+                        try {
+                            const res = await fetch(`/api/v1/messages/${message.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ content: newContent })
+                            });
+                            if (res.ok) {
+                                message.content = newContent;
+                                this.showNotification('Сообщение отредактировано', '✅');
+                            }
+                        } catch (e) {
+                            console.error('Edit message error:', e);
+                            this.showNotification('Ошибка редактирования', '❌');
+                        }
                     }
-                    return processed;
-                }
+                },
+
+                async deleteMessage(messageId) {
+                    if (confirm('Удалить сообщение?')) {
+                        try {
+                            const res = await fetch(`/api/v1/messages/${messageId}`, {
+                                method: 'DELETE'
+                            });
+                            if (res.ok) {
+                                const messages = this.chatMessages[this.activeChat];
+                                const index = messages.findIndex(m => m.id === messageId);
+                                if (index !== -1) {
+                                    messages.splice(index, 1);
+                                }
+                                this.showNotification('Сообщение удалено', '✅');
+                            }
+                        } catch (e) {
+                            console.error('Delete message error:', e);
+                            this.showNotification('Ошибка удаления', '❌');
+                        }
+                    }
+                },
+
+                // Звонки (заглушка)
+                startCall() { this.isCallActive = true; },
+                endCall() { this.isCallActive = false; },
+                toggleMute() { this.isMuted = !this.isMuted; },
+                toggleVideo() { this.isVideoOn = !this.isVideoOn; }
             };
         }
     </script>

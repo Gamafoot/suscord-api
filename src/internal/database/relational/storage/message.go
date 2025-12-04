@@ -2,7 +2,7 @@ package storage
 
 import (
 	"context"
-	"suscord/internal/database/gorm/model"
+	"suscord/internal/database/relational/model"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 
@@ -18,32 +18,37 @@ func NewMessageStorage(db *gorm.DB) *messageStorage {
 	return &messageStorage{db: db}
 }
 
-func (s *messageStorage) GetMessages(ctx context.Context, chatID, lastMessageID uint, limit int) ([]*entity.Message, error) {
+func (s *messageStorage) GetMessages(
+	ctx context.Context,
+	chatID, lastMessageID uint,
+	limit int,
+) ([]*entity.Message, error) {
+
 	messages := make([]*model.Message, 0)
 
-	var (
-		sql  string
-		args []interface{}
-	)
+	db := s.db.WithContext(ctx).
+		Model(&model.Message{}).
+		Where("chat_id = ?", chatID)
 
-	if lastMessageID == 0 {
-		sql = "select * from messages where chat_id = ? ORDER BY id DESC LIMIT ?"
-		args = []interface{}{chatID, limit}
-	} else {
-		sql = "select * from messages where chat_id = ? AND id < ? ORDER BY id DESC LIMIT ?"
-		args = []interface{}{chatID, lastMessageID, limit}
+	if lastMessageID != 0 {
+		db = db.Where("id < ?", lastMessageID)
 	}
 
-	if err := s.db.WithContext(ctx).Raw(sql, args...).Scan(&messages).Error; err != nil {
+	if err := db.
+		Order("id DESC").
+		Limit(limit).
+		Preload("Attachments").
+		Find(&messages).Error; err != nil {
 		return nil, pkgErrors.WithStack(err)
 	}
 
-	messageDomains := make([]*entity.Message, len(messages))
-	for i, message := range messages {
-		messageDomains[i] = messageModelToDomain(message)
+	// конвертация в domain
+	result := make([]*entity.Message, len(messages))
+	for i, m := range messages {
+		result[i] = messageModelToDomain(m)
 	}
 
-	return messageDomains, nil
+	return result, nil
 }
 
 func (s *messageStorage) GetByID(ctx context.Context, messageID uint) (*entity.Message, error) {
@@ -61,6 +66,7 @@ func (s *messageStorage) Create(ctx context.Context, userID, chatID uint, data *
 	message := &model.Message{
 		UserID:  userID,
 		ChatID:  chatID,
+		Type:    data.Type,
 		Content: data.Content,
 	}
 	if err := s.db.WithContext(ctx).Create(message).Error; err != nil {
@@ -100,12 +106,25 @@ func (s *messageStorage) IsOwner(ctx context.Context, userID, messageID uint) (b
 }
 
 func messageModelToDomain(message *model.Message) *entity.Message {
+	attachments := make([]*entity.Attachment, len(message.Attachments))
+	for i, attachment := range message.Attachments {
+		attachments[i] = &entity.Attachment{
+			ID:        attachment.ID,
+			MessageID: attachment.MessageID,
+			FilePath:  attachment.FilePath,
+			FileSize:  attachment.FileSize,
+			MimeType:  attachment.MimeType,
+		}
+	}
+
 	return &entity.Message{
-		ID:        message.ID,
-		ChatID:    message.ChatID,
-		UserID:    message.UserID,
-		Content:   message.Content,
-		CreatedAt: message.CreatedAt,
-		UpdatedAt: message.UpdatedAt,
+		ID:          message.ID,
+		ChatID:      message.ChatID,
+		UserID:      message.UserID,
+		Type:        message.Type,
+		Content:     message.Content,
+		CreatedAt:   message.CreatedAt,
+		UpdatedAt:   message.UpdatedAt,
+		Attachments: attachments,
 	}
 }

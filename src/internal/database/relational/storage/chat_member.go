@@ -2,7 +2,7 @@ package storage
 
 import (
 	"context"
-	"suscord/internal/database/gorm/model"
+	"suscord/internal/database/relational/model"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 

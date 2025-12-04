@@ -1,13 +1,14 @@
 package storage
 
 import (
+	"context"
 	"suscord/internal/domain/entity"
 )
 
-type MessageAttachmentStorage interface {
-	GetByID(attachmentID int) (*entity.MessageAttachment, error)
-	GetByMessageID(messageID int) (*entity.MessageAttachment, error)
-	Create(attachment *entity.MessageAttachment) error
-	Update(attachmentID uint, data map[string]interface{}) error
-	Delete(attachmentID uint) error
+type AttachmentStorage interface {
+	GetByID(ctx context.Context, attachmentID uint) (*entity.Attachment, error)
+	GetByMessageID(ctx context.Context, messageID uint) ([]*entity.Attachment, error)
+	Create(ctx context.Context, messageID uint, data *entity.CreateAttachment) (uint, error)
+	Delete(ctx context.Context, attachmentID uint) error
+	IsOwner(ctx context.Context, userID, attachmentID uint) (bool, error)
 }

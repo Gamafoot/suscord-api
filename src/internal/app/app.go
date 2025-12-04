@@ -3,7 +3,7 @@ package app
 import (
 	"log"
 	"suscord/internal/config"
-	"suscord/internal/database/gorm"
+	"suscord/internal/database/relational"
 	"suscord/internal/eventbus"
 	"suscord/internal/service"
 
@@ -11,34 +11,34 @@ import (
 )
 
 type App struct {
-	config          *config.Config
+	cfg             *config.Config
 	httpServer      *httpServer
 	websocketServer *websocketServer
 }
 
 func NewApp() (*App, error) {
 	app := &App{
-		config: config.GetConfig(),
+		cfg: config.GetConfig(),
 	}
 
-	storage, err := gorm.NewGormStorage(app.config.Database.URL)
+	storage, err := relational.NewGormStorage(app.cfg.Database.URL, app.cfg.Database.LogLevel)
 	if err != nil {
 		panic(err)
 	}
 
 	eventbus := eventbus.NewBus()
 
-	service := service.NewService(app.config, storage, eventbus)
+	service := service.NewService(app.cfg, storage, eventbus)
 
 	app.httpServer = NewHttpServer(
-		app.config,
+		app.cfg,
 		service,
 		storage,
 		eventbus,
 	)
 
 	app.websocketServer = NewWebsocketServer(
-		app.config,
+		app.cfg,
 		app.httpServer.Echo(),
 		storage,
 		eventbus,

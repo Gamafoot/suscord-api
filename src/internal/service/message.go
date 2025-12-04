@@ -2,19 +2,32 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"mime"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"suscord/internal/config"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/domain/eventbus"
+	"suscord/internal/domain/eventbus/mapper"
 	"suscord/internal/domain/storage"
+	"time"
+
+	pkgErrors "github.com/pkg/errors"
 )
 
 type messageService struct {
+	cfg      *config.Config
 	storage  storage.Storage
 	eventbus eventbus.Bus
 }
 
-func NewMessageService(storage storage.Storage, eventbus eventbus.Bus) *messageService {
+func NewMessageService(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *messageService {
 	return &messageService{
+		cfg:      cfg,
 		storage:  storage,
 		eventbus: eventbus,
 	}
@@ -38,14 +51,8 @@ func (s *messageService) GetChatMessages(ctx context.Context, input *entity.GetM
 	return messages, nil
 }
 
-func (s *messageService) Create(ctx context.Context, userID, chatID uint, input *entity.CreateMessage) (*entity.Message, error) {
-	messageID, err := s.storage.Message().Create(ctx,
-		userID,
-		chatID,
-		&entity.CreateMessage{
-			Content: input.Content,
-		},
-	)
+func (s *messageService) Create(ctx context.Context, userID, chatID uint, data *entity.CreateMessage, files []*multipart.FileHeader) (*entity.Message, error) {
+	messageID, err := s.storage.Message().Create(ctx, userID, chatID, data)
 	if err != nil {
 		return nil, err
 	}
@@ -55,14 +62,15 @@ func (s *messageService) Create(ctx context.Context, userID, chatID uint, input 
 		return nil, err
 	}
 
-	go s.eventbus.Publish(eventbus.MessageCreated{
-		ID:        message.ID,
-		ChatID:    message.ChatID,
-		UserID:    message.UserID,
-		Content:   message.Content,
-		CreatedAt: message.CreatedAt,
-		UpdatedAt: message.UpdatedAt,
-	})
+	if len(files) > 0 {
+		attachments, err := s.createAttachments(ctx, messageID, files)
+		if err != nil {
+			return nil, err
+		}
+		message.Attachments = attachments
+	}
+
+	go s.eventbus.Publish(mapper.NewCreatedMessage(message))
 
 	return message, nil
 }
@@ -101,4 +109,79 @@ func (s *messageService) Delete(ctx context.Context, userID, messageID uint) err
 	}
 
 	return nil
+}
+
+func (s *messageService) createAttachments(
+	ctx context.Context,
+	messageID uint,
+	files []*multipart.FileHeader,
+) ([]*entity.Attachment, error) {
+	attachments := make([]*entity.Attachment, len(files))
+
+	for i, file := range files {
+		mimetype := mime.TypeByExtension(filepath.Ext(file.Filename))
+
+		filepath, err := s.saveFile(file)
+		if err != nil {
+			return nil, err
+		}
+
+		data := &entity.CreateAttachment{
+			FilePath: filepath,
+			FileSize: file.Size,
+			MimeType: mimetype,
+		}
+
+		attachmentID, err := s.storage.Attachment().Create(ctx, messageID, data)
+		if err != nil {
+			return nil, err
+		}
+
+		attachment, err := s.storage.Attachment().GetByID(ctx, attachmentID)
+		if err != nil {
+			return nil, err
+		}
+
+		attachments[i] = attachment
+	}
+
+	return attachments, nil
+}
+
+func (s *messageService) saveFile(file *multipart.FileHeader) (string, error) {
+	ext := filepath.Ext(file.Filename)
+	filename := fmt.Sprintf("%s_%d"+ext, file.Filename, time.Now().UnixNano())
+
+	var (
+		rootpath string
+		year     int
+		month    int
+	)
+
+	if year == 0 && month == 0 {
+		now := time.Now()
+		year = now.Year()
+		month = int(now.Month())
+	}
+
+	rootpath = fmt.Sprintf("%s/%d/%d", s.cfg.Media.RootFolder, year, month)
+	filepath := fmt.Sprintf("%s/%s", rootpath, filename)
+
+	os.MkdirAll(rootpath, os.ModePerm)
+
+	src, err := file.Open()
+	if err != nil {
+		return "", pkgErrors.WithStack(err)
+	}
+	defer src.Close()
+
+	dst, err := os.Create(filepath)
+	if err != nil {
+		return "", pkgErrors.WithStack(err)
+	}
+	defer dst.Close()
+
+	io.Copy(dst, src)
+
+	return filepath, nil
 }

@@ -8,20 +8,22 @@ import (
 )
 
 type _service struct {
-	user       *userService
-	auth       *authService
-	chat       *chatService
-	chatMember *chatMemberService
-	message    *messageService
+	user              *userService
+	auth              *authService
+	chat              *chatService
+	chatMember        *chatMemberService
+	message           *messageService
+	attachment *attachmentService
 }
 
 func NewService(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *_service {
 	return &_service{
-		user:       NewUserService(storage),
-		auth:       NewAuthService(cfg, storage),
-		chat:       NewChatService(storage),
-		chatMember: NewChatMemberService(storage),
-		message:    NewMessageService(storage, eventbus),
+		user:              NewUserService(storage),
+		auth:              NewAuthService(cfg, storage),
+		chat:              NewChatService(storage),
+		chatMember:        NewChatMemberService(storage),
+		message:           NewMessageService(cfg, storage, eventbus),
+		attachment: NewAttachmentService(cfg, storage),
 	}
 }
 
@@ -43,4 +45,8 @@ func (s *_service) ChatMember() service.ChatMemberService {
 
 func (s *_service) Message() service.MessageService {
 	return s.message
+}
+
+func (s *_service) Attachment() service.AttachementService {
+	return s.attachment
 }

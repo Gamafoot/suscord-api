@@ -1,4 +1,4 @@
-package eventbus
+package dto
 
 type User struct {
 	ID        uint   `json:"id"`

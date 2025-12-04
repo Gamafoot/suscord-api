@@ -91,7 +91,6 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 
 	conn, err := upgrader.Upgrade(c.Response().Writer, c.Request(), nil)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, map[string]string{"message": err.Error()})
 		return pkgErrors.WithStack(err)
 	}
 

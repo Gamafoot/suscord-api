@@ -1,6 +1,6 @@
-package eventbus
+package dto
 
-const EventJoinedRoom = "JoinedRoom"
+import "suscord/internal/domain/eventbus/events"
 
 type JoinedRoom struct {
 	RoomID uint `json:"room_id"`
@@ -8,5 +8,5 @@ type JoinedRoom struct {
 }
 
 func (JoinedRoom) Name() string {
-	return EventJoinedRoom
+	return events.EventJoinedRoom
 }

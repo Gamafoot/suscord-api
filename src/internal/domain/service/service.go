@@ -6,4 +6,5 @@ type Service interface {
 	Chat() ChatService
 	ChatMember() ChatMemberService
 	Message() MessageService
+	Attachment() AttachementService
 }
