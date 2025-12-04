@@ -72,8 +72,10 @@ func NewHttpServer(cfg *config.Config, services service.Service, storage storage
 	route := server.echo.Group(
 		"",
 		middleware.BodyLimit(server.cfg.Media.MaxSize),
-		customMiddleware.Logger,
 		_customMiddleware.AllowedFileExtentions(),
+		middleware.LoggerWithConfig(middleware.LoggerConfig{
+			Format: "method=${method}, uri=${uri}, status=${status}\n",
+		}),
 	)
 
 	handlerV1WEB.InitRoutes(route)
