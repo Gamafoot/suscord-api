@@ -14,7 +14,7 @@ func (mw *Middleware) NotAuth() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			cookie, _ := c.Cookie("session")
 			if cookie != nil {
-				session, err := mw.storage.Session().GetByUUID(c.Request().Context(), cookie.Value)
+				session, err := mw.storage.Database().Session().GetByUUID(c.Request().Context(), cookie.Value)
 				if err != nil {
 					if !pkgErrors.Is(err, domainErrors.ErrRecordNotFound) {
 						return err

@@ -8,7 +8,11 @@ import (
 )
 
 // Room management - управление комнатами и клиентами
-func (hub *Hub) joinRoom(roomID uint, client *Client) error {
+func (hub *Hub) joinRoom(chatID uint, client *Client) error {
+	if client == nil {
+		return nil
+	}
+
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 
@@ -16,7 +20,7 @@ func (hub *Hub) joinRoom(roomID uint, client *Client) error {
 	defer cancel()
 
 	// Проверяем права доступа
-	ok, err := hub.storage.ChatMember().IsMemberOfChat(ctx, roomID, client.ID)
+	ok, err := hub.storage.Database().ChatMember().IsMemberOfChat(ctx, client.ID, chatID)
 	if err != nil {
 		return err
 	}
@@ -29,22 +33,20 @@ func (hub *Hub) joinRoom(roomID uint, client *Client) error {
 	}
 
 	// Создаем комнату если не существует
-	if _, exists := hub.rooms[roomID]; !exists {
-		hub.rooms[roomID] = make(map[uint]bool)
+	if _, exists := hub.rooms[chatID]; !exists {
+		hub.rooms[chatID] = make(map[uint]bool)
 	}
 
 	// Добавляем клиента в комнату
-	hub.rooms[roomID][client.ID] = true
-	client.Rooms[roomID] = true
+	hub.rooms[chatID][client.ID] = true
+	client.Rooms[chatID] = true
 
-	// Отправляем подтверждение
-	return client.SendMessage(&dto.ResponseMessage{
-		Type: "join_room_ok",
-		Data: map[string]interface{}{"room_id": roomID},
-	})
+	return nil
 }
 
 func (hub *Hub) leaveRoom(roomID, clientID uint) {
+	hub.mutex.Lock()
+
 	// Удаляем клиента из комнаты
 	if room, exists := hub.rooms[roomID]; exists {
 		delete(room, clientID)
@@ -58,11 +60,24 @@ func (hub *Hub) leaveRoom(roomID, clientID uint) {
 		delete(client.Rooms, roomID)
 	}
 
+	hub.mutex.Unlock()
+
 	// Уведомляем других участников
-	go hub.broadcastToRoomExcept(roomID, clientID, &dto.ResponseMessage{
+	hub.broadcastToRoomExcept(roomID, clientID, &dto.ResponseMessage{
 		Type: "user_left",
 		Data: map[string]interface{}{"user_id": clientID},
 	})
+}
+
+func (hub *Hub) deleteRoom(roomID uint) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+
+	hub.rooms[roomID] = make(map[uint]bool)
+
+	for clientID := range hub.clients {
+		delete(hub.clients[clientID].Rooms, roomID)
+	}
 }
 
 func (hub *Hub) joinToUserRooms(client *Client, chats []*entity.Chat) error {
@@ -73,7 +88,7 @@ func (hub *Hub) joinToUserRooms(client *Client, chats []*entity.Chat) error {
 	defer cancel()
 
 	for _, chat := range chats {
-		ok, err := hub.storage.ChatMember().IsMemberOfChat(ctx, client.ID, chat.ID)
+		ok, err := hub.storage.Database().ChatMember().IsMemberOfChat(ctx, client.ID, chat.ID)
 		if err != nil {
 			return err
 		}
@@ -96,11 +111,11 @@ func (hub *Hub) joinToUserRooms(client *Client, chats []*entity.Chat) error {
 }
 
 // Broadcasting methods
-func (hub *Hub) broadcastToRoom(roomID uint, message interface{}) {
+func (hub *Hub) broadcastToRoom(chatID uint, message interface{}) {
 	hub.mutex.RLock()
 	defer hub.mutex.RUnlock()
 
-	if room, exists := hub.rooms[roomID]; exists {
+	if room, exists := hub.rooms[chatID]; exists {
 		for userID := range room {
 			if client, exists := hub.clients[userID]; exists {
 				client.SendMessage(message)
@@ -109,15 +124,15 @@ func (hub *Hub) broadcastToRoom(roomID uint, message interface{}) {
 	}
 }
 
-func (hub *Hub) broadcastToRoomExcept(roomID, exceptUserID uint, message *dto.ResponseMessage) {
+func (hub *Hub) broadcastToRoomExcept(chatID, exceptUserID uint, message *dto.ResponseMessage) {
 	hub.mutex.RLock()
 	defer hub.mutex.RUnlock()
 
-	if room, exists := hub.rooms[roomID]; exists {
+	if room, exists := hub.rooms[chatID]; exists {
 		for userID := range room {
 			if userID != exceptUserID {
 				if client, exists := hub.clients[userID]; exists {
-					go client.SendMessage(message)
+					client.SendMessage(message)
 				}
 			}
 		}

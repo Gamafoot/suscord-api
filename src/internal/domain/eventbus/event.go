@@ -1,5 +1,5 @@
 package eventbus
 
 type Event interface {
-	Name() string
+	EventName() string
 }

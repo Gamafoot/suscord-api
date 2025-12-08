@@ -18,7 +18,7 @@ func (mw *Middleware) RequiredAuth() func(next echo.HandlerFunc) echo.HandlerFun
 				return c.Redirect(http.StatusFound, "/auth")
 			}
 
-			session, err := mw.storage.Session().GetByUUID(ctx, cookie.Value)
+			session, err := mw.storage.Database().Session().GetByUUID(ctx, cookie.Value)
 			if err != nil {
 				if pkgErrors.Is(err, domainErrors.ErrRecordNotFound) {
 					return c.Redirect(http.StatusFound, "/auth")

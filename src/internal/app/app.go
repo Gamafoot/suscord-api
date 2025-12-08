@@ -3,42 +3,40 @@ package app
 import (
 	"log"
 	"suscord/internal/config"
-	"suscord/internal/database/relational"
-	"suscord/internal/eventbus"
-	"suscord/internal/service"
+	"suscord/internal/infrastructure/eventbus"
+	"suscord/internal/infrastructure/service"
 
 	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
-	cfg             *config.Config
 	httpServer      *httpServer
 	websocketServer *websocketServer
 }
 
 func NewApp() (*App, error) {
-	app := &App{
-		cfg: config.GetConfig(),
-	}
+	cfg := config.GetConfig()
 
-	storage, err := relational.NewGormStorage(app.cfg.Database.URL, app.cfg.Database.LogLevel)
+	storage, err := NewStorage(cfg)
 	if err != nil {
 		panic(err)
 	}
 
 	eventbus := eventbus.NewBus()
 
-	service := service.NewService(app.cfg, storage, eventbus)
+	service := service.NewService(cfg, storage, eventbus)
+
+	app := new(App)
 
 	app.httpServer = NewHttpServer(
-		app.cfg,
+		cfg,
 		service,
 		storage,
 		eventbus,
 	)
 
 	app.websocketServer = NewWebsocketServer(
-		app.cfg,
+		cfg,
 		app.httpServer.Echo(),
 		storage,
 		eventbus,

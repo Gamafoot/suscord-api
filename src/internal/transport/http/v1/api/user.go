@@ -5,6 +5,7 @@ import (
 	"net/http"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/transport/dto"
+	"suscord/internal/transport/mapper"
 	"suscord/internal/transport/utils"
 
 	"github.com/labstack/echo/v4"
@@ -13,6 +14,7 @@ import (
 func (h *handler) InitUserRoutes(route *echo.Group) {
 	route.GET("/users/:user_id", h.GetUserInfo)
 	route.GET("/users/me", h.AboutMe)
+	route.GET("/users", h.SearchUsers)
 }
 
 func (h *handler) GetUserInfo(c echo.Context) error {
@@ -29,7 +31,7 @@ func (h *handler) GetUserInfo(c echo.Context) error {
 		return err
 	}
 
-	userDTO := dto.UserInfo{
+	userDTO := dto.User{
 		ID:         user.ID,
 		Username:   user.Username,
 		AvatarPath: user.AvatarPath,
@@ -57,4 +59,26 @@ func (h *handler) AboutMe(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, userDTO)
+}
+
+func (h *handler) SearchUsers(c echo.Context) error {
+	userID := c.Get("user_id").(uint)
+
+	searchPattern := c.QueryParam("search")
+
+	users, err := h.service.User().SearchUsers(c.Request().Context(), userID, searchPattern)
+	if err != nil {
+		if errors.Is(err, domainErrors.ErrRecordNotFound) {
+			return c.NoContent(http.StatusNotFound)
+		}
+		return err
+	}
+
+	result := make([]*dto.User, len(users))
+
+	for i, user := range users {
+		result[i] = mapper.NewUser(user)
+	}
+
+	return c.JSON(http.StatusOK, result)
 }

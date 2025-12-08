@@ -8,13 +8,9 @@ type ClientMessage struct {
 }
 
 type ResponseMessage struct {
-	RoomID uint        `json:"-"`
+	ChatID uint        `json:"-"`
 	Type   string      `json:"type"`
 	Data   interface{} `json:"data"`
-}
-
-type WsGetRoomClients struct {
-	RoomID uint `json:"room_id"`
 }
 
 type SendMessage struct {

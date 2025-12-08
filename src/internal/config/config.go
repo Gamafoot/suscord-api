@@ -16,9 +16,15 @@ type Config struct {
 	} `yaml:"server"`
 
 	Database struct {
-		URL      string `env:"url" env-required:"true"`
-		LogLevel string `env:"url"`
+		URL      string `yaml:"url" env-required:"true"`
+		LogLevel string `yaml:"log_level"`
 	} `yaml:"database"`
+
+	Redis struct {
+		Addr     string `yaml:"addr" env-required:"true"`
+		Password string `yaml:"password"`
+		DB       int    `yaml:"db" env-default:"0"`
+	} `yaml:"redis"`
 
 	Hash struct {
 		Salt string `yaml:"salt" env-required:"true"`

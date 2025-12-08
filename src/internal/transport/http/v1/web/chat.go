@@ -8,6 +8,7 @@ import (
 
 func (h *handler) InitChatRoutes(route *echo.Group) {
 	route.GET("/", h.ChatPage)
+	route.GET("/chats/:id", h.ChatPage)
 	route.GET("/get-session", h.GetSession)
 }
 

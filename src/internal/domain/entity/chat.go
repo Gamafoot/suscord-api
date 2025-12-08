@@ -3,7 +3,7 @@ package entity
 type Chat struct {
 	ID         uint   `json:"id"`
 	Name       string `json:"name"`
-	AvatarPath string `json:"avatar_url"`
+	AvatarPath string `json:"avatar_path"`
 	Type       string `json:"type"`
 }
 
@@ -13,8 +13,6 @@ type CreatePrivateChat struct {
 }
 
 type CreateGroupChat struct {
-	UserID     uint
-	FriendID   uint
 	Name       string
 	AvatarPath string
 }

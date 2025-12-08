@@ -7,6 +7,7 @@ import (
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/transport/dto"
+	"suscord/internal/transport/mapper"
 	"suscord/internal/transport/utils"
 
 	"github.com/labstack/echo/v4"
@@ -15,7 +16,7 @@ import (
 func (h *handler) InitChatRoutes(route *echo.Group) {
 	route.GET("/chats", h.GetUserChats)
 	route.POST("/chats/private", h.GetOrCreatePrivateChat)
-	route.POST("/chats", h.CreateGroupChat)
+	route.POST("/chats/group", h.CreateGroupChat)
 	route.PATCH("/chats/:chat_id", h.UpdateGroupChat)
 	route.DELETE("/chats/:chat_id", h.DeletePrivateChat)
 }
@@ -26,23 +27,20 @@ func (h *handler) GetUserChats(c echo.Context) error {
 
 	userID := c.Get("user_id").(uint)
 
-	chats, err := h.service.Chat().GetUserChats(ctx, userID)
+	searchParam := c.QueryParam("search")
+
+	chats, err := h.service.Chat().GetUserChats(ctx, userID, searchParam)
 	if err != nil {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
-	respChats := make([]*dto.Chat, len(chats))
+	result := make([]*dto.Chat, len(chats))
 
 	for i, chat := range chats {
-		respChats[i] = &dto.Chat{
-			ID:         chat.ID,
-			Type:       chat.Type,
-			Name:       chat.Name,
-			AvatarPath: chat.AvatarPath,
-		}
+		result[i] = mapper.NewChat(chat)
 	}
 
-	return c.JSON(http.StatusOK, respChats)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *handler) GetOrCreatePrivateChat(c echo.Context) error {
@@ -62,14 +60,16 @@ func (h *handler) GetOrCreatePrivateChat(c echo.Context) error {
 		c.Request().Context(),
 		&entity.CreatePrivateChat{
 			UserID:   userID,
-			FriendID: reqInput.FriendID,
+			FriendID: reqInput.UserID,
 		},
 	)
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, chat)
+	result := mapper.NewChat(chat)
+
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *handler) CreateGroupChat(c echo.Context) error {
@@ -85,12 +85,12 @@ func (h *handler) CreateGroupChat(c echo.Context) error {
 
 	userID := c.Get("user_id").(uint)
 
-	chat, err := h.service.Chat().CreateGroupChat(c.Request().Context(), &entity.CreateGroupChat{
-		UserID:     userID,
-		FriendID:   reqInput.FriendID,
+	data := &entity.CreateGroupChat{
 		Name:       reqInput.Name,
 		AvatarPath: reqInput.AvatarPath,
-	})
+	}
+
+	chat, err := h.service.Chat().CreateGroupChat(c.Request().Context(), userID, data)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,9 @@ func (h *handler) UpdateGroupChat(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	if reqInput.Name == nil && reqInput.AvatarPath == nil {
+	file, _ := c.FormFile("file")
+
+	if reqInput.Name == nil && file == nil {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
@@ -120,14 +122,26 @@ func (h *handler) UpdateGroupChat(c echo.Context) error {
 
 	userID := c.Get("user_id").(uint)
 
+	var avatarPath *string
+
+	if file != nil {
+		filepath, err := h.service.File().UploadFile(file)
+		if err != nil {
+			return err
+		}
+		avatarPath = &filepath
+	}
+
+	data := &entity.UpdateChat{
+		Name:       reqInput.Name,
+		AvatarPath: avatarPath,
+	}
+
 	chat, err := h.service.Chat().UpdateGroupChat(
 		c.Request().Context(),
 		userID,
 		chatID,
-		&entity.UpdateChat{
-			Name:       reqInput.Name,
-			AvatarPath: reqInput.AvatarPath,
-		},
+		data,
 	)
 	if err != nil {
 		return err
@@ -144,7 +158,7 @@ func (h *handler) DeletePrivateChat(c echo.Context) error {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
-	err = h.service.Chat().DeletePrivateChat(c.Request().Context(), chatID, userID)
+	err = h.service.Chat().DeletePrivateChat(c.Request().Context(), userID, chatID)
 	if err != nil {
 		if errors.Is(err, domainErrors.ErrForbidden) {
 			return utils.NewErrorResponse(c, http.StatusForbidden, err.Error())

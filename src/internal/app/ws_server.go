@@ -5,6 +5,7 @@ import (
 	"suscord/internal/domain/eventbus"
 	"suscord/internal/domain/storage"
 	"suscord/internal/transport/ws"
+	"suscord/internal/transport/ws/hub"
 
 	"github.com/labstack/echo/v4"
 )
@@ -12,20 +13,30 @@ import (
 type websocketServer struct {
 	echo     *echo.Echo
 	eventbus eventbus.Bus
+	hub      *hub.Hub
 }
 
-func NewWebsocketServer(cfg *config.Config, echo *echo.Echo, storage storage.Storage, eventbus eventbus.Bus) *websocketServer {
-	s := &websocketServer{
+func NewWebsocketServer(
+	cfg *config.Config,
+	echo *echo.Echo,
+	storage storage.Storage,
+	eventbus eventbus.Bus,
+) *websocketServer {
+	hubInstance := hub.NewHub(cfg, storage, eventbus)
+
+	server := &websocketServer{
 		echo:     echo,
 		eventbus: eventbus,
+		hub:      hubInstance,
 	}
 
-	handler := ws.NewHandler(cfg, storage, s.eventbus)
-	handler.InitRoutes(s.echo)
+	handler := ws.NewHandler(hubInstance)
+	handler.InitRoutes(server.echo)
 
-	return s
+	return server
 }
 
 func (s *websocketServer) Run() error {
+	s.hub.Run()
 	return nil
 }

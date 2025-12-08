@@ -34,8 +34,8 @@ func NewHub(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) 
 		cfg:        cfg,
 		rooms:      make(Rooms),
 		clients:    make(Clients),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+		register:   make(chan *Client, 10),
+		unregister: make(chan *Client, 10),
 		broadcast:  make(chan *dto.ResponseMessage, 10),
 		mutex:      &sync.RWMutex{},
 		storage:    storage,
@@ -56,8 +56,17 @@ func (hub *Hub) Run() {
 		case client := <-hub.unregister:
 			hub.mutex.Lock()
 			if _, exists := hub.clients[client.ID]; exists {
+				// Сохраняем комнаты для очистки
+				roomsToLeave := make([]uint, 0, len(client.Rooms))
 				for roomID := range client.Rooms {
-					hub.leaveRoom(client.ID, roomID)
+					roomsToLeave = append(roomsToLeave, roomID)
+					// Удаляем клиента из комнаты
+					if room, exists := hub.rooms[roomID]; exists {
+						delete(room, client.ID)
+						if len(room) == 0 {
+							delete(hub.rooms, roomID)
+						}
+					}
 				}
 				delete(hub.clients, client.ID)
 				client.Conn.Close()
@@ -65,7 +74,7 @@ func (hub *Hub) Run() {
 			hub.mutex.Unlock()
 
 		case message := <-hub.broadcast:
-			go hub.broadcastToRoom(message.RoomID, message)
+			hub.broadcastToRoom(message.ChatID, message)
 		}
 	}
 }
@@ -81,7 +90,7 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 		return c.NoContent(http.StatusForbidden)
 	}
 
-	session, err := hub.storage.Session().GetByUUID(c.Request().Context(), sessionUUID)
+	session, err := hub.storage.Database().Session().GetByUUID(c.Request().Context(), sessionUUID)
 	if err != nil {
 		if pkgErrors.Is(err, domainError.ErrRecordNotFound) {
 			return c.NoContent(http.StatusForbidden)
@@ -94,21 +103,22 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 		return pkgErrors.WithStack(err)
 	}
 
-	user, err := hub.storage.User().GetByID(c.Request().Context(), session.UserID)
+	user, err := hub.storage.Database().User().GetByID(c.Request().Context(), session.UserID)
 	if err != nil {
 		return pkgErrors.WithStack(err)
 	}
 
 	client := &Client{
-		Conn:      conn,
-		ID:        user.ID,
-		Username:  user.Username,
-		AvatarURL: user.AvatarPath,
+		Conn:       conn,
+		ID:         user.ID,
+		Username:   user.Username,
+		AvatarPath: user.AvatarPath,
+		Rooms:      make(map[uint]bool),
 	}
 
 	hub.register <- client
 
-	chats, err := hub.storage.Chat().GetUserChats(c.Request().Context(), user.ID)
+	chats, err := hub.storage.Database().Chat().GetUserChats(c.Request().Context(), user.ID)
 	if err != nil {
 		conn.Close()
 		return err

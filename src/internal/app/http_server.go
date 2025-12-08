@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"suscord/internal/config"
 	"suscord/internal/domain/eventbus"
 	"suscord/internal/domain/service"
@@ -21,10 +22,8 @@ import (
 )
 
 type httpServer struct {
-	cfg     *config.Config
-	echo    *echo.Echo
-	service service.Service
-	storage storage.Storage
+	cfg  *config.Config
+	echo *echo.Echo
 }
 
 type TemplateRenderer struct {
@@ -35,12 +34,15 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c 
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
-func NewHttpServer(cfg *config.Config, services service.Service, storage storage.Storage, eventbus eventbus.Bus) *httpServer {
+func NewHttpServer(
+	cfg *config.Config,
+	service service.Service,
+	storage storage.Storage,
+	eventbus eventbus.Bus,
+) *httpServer {
 	server := &httpServer{
-		cfg:     cfg,
-		echo:    echo.New(),
-		service: services,
-		storage: storage,
+		cfg:  cfg,
+		echo: echo.New(),
 	}
 
 	server.echo.Static(server.cfg.Static.RootUrl, server.cfg.Static.RootFolder)
@@ -54,23 +56,24 @@ func NewHttpServer(cfg *config.Config, services service.Service, storage storage
 
 	_customMiddleware := customMiddleware.NewMiddleware(storage)
 
-	// server.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-	// 	AllowOrigins: server.cfg.CORS.Origins,
-	// 	AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
-	// }))
-	// server.echo.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-	// 	Timeout: server.cfg.Server.Timeout,
-	// }))
+	server.echo.Use()
 
 	handlerV1WEB := v1WEB.NewHandler(
 		server.cfg,
-		server.service,
-		server.storage,
+		service,
+		storage,
 		_customMiddleware,
 	)
 
 	route := server.echo.Group(
 		"",
+		middleware.CORSWithConfig(middleware.CORSConfig{
+			AllowOrigins: server.cfg.CORS.Origins,
+			AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+		}),
+		middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+			Timeout: server.cfg.Server.Timeout,
+		}),
 		middleware.BodyLimit(server.cfg.Media.MaxSize),
 		_customMiddleware.AllowedFileExtentions(),
 		middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -82,8 +85,8 @@ func NewHttpServer(cfg *config.Config, services service.Service, storage storage
 
 	handlerV1API := v1API.NewHandler(
 		server.cfg,
-		server.service,
-		server.storage,
+		service,
+		storage,
 		eventbus,
 		_customMiddleware,
 	)

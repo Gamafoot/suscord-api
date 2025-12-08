@@ -1,22 +1,16 @@
 package ws
 
 import (
-	"suscord/internal/config"
-	"suscord/internal/domain/eventbus"
-	"suscord/internal/domain/storage"
 	"suscord/internal/transport/ws/hub"
 
 	"github.com/labstack/echo/v4"
 )
 
 type handler struct {
-	storage storage.Storage
-	hub     *hub.Hub
+	hub *hub.Hub
 }
 
-func NewHandler(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *handler {
-	hub := hub.NewHub(cfg, storage, eventbus)
-	go hub.Run()
+func NewHandler(hub *hub.Hub) *handler {
 	return &handler{
 		hub: hub,
 	}

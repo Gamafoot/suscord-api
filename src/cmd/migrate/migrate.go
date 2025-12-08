@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 	"suscord/internal/config"
-	"suscord/internal/database/relational"
-	"suscord/internal/database/relational/model"
+	"suscord/internal/infrastructure/database/relational"
+	"suscord/internal/infrastructure/database/relational/model"
 
 	pkgErrors "github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -37,7 +37,17 @@ func main() {
 		log.Fatalf("failed to migrate models: %v", err)
 	}
 
-	scripts, err := getSqlScripts("function")
+	scripts, err := getSqlScripts("type")
+	if err != nil {
+		log.Fatalf("failed get type scripts: %+v\n", err)
+	}
+
+	err = executeScripts(db, scripts)
+	if err != nil {
+		log.Printf("WARNING: failed to execute types: %+v\n", err)
+	}
+
+	scripts, err = getSqlScripts("function")
 	if err != nil {
 		log.Fatalf("failed get function scripts: %+v\n", err)
 	}

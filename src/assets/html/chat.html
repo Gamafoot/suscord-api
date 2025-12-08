@@ -177,12 +177,12 @@
         .chat-messages {
             position: absolute;
             top: 73px;
-            bottom: 20px;
+            bottom: 0;
             left: 0;
             right: 0;
             overflow-y: auto;
             padding: 16px;
-            padding-bottom: 80px;
+            margin-bottom: 110px;
             display: flex;
             flex-direction: column;
             gap: 16px;
@@ -651,6 +651,99 @@
         .attachment-container:hover .attachment-delete {
             display: flex;
         }
+
+        .invite-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            background: var(--discord-dark);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            z-index: 10001;
+            border: 1px solid #40444b;
+        }
+
+        .invite-timer {
+            width: 100%;
+            height: 4px;
+            background: #40444b;
+            border-radius: 2px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .invite-timer-bar {
+            height: 100%;
+            background: var(--discord-success);
+            transition: width 0.1s linear;
+        }
+
+        .btn-primary {
+            background: #5865f2 !important;
+            color: white !important;
+        }
+
+        .btn-secondary {
+            background: #40444b !important;
+            color: #b9bbbe !important;
+        }
+
+        .crop-container {
+            position: relative;
+            max-width: 300px;
+            max-height: 300px;
+            margin: 0 auto;
+            border: 2px solid #40444b;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .crop-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .crop-overlay {
+            position: absolute;
+            border: 2px solid #5865f2;
+            background: rgba(88, 101, 242, 0.1);
+            cursor: move;
+        }
+
+        .crop-handle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #5865f2;
+            border: 1px solid white;
+            cursor: nw-resize;
+        }
+
+        .crop-handle.nw {
+            top: -4px;
+            left: -4px;
+        }
+
+        .crop-handle.ne {
+            top: -4px;
+            right: -4px;
+            cursor: ne-resize;
+        }
+
+        .crop-handle.sw {
+            bottom: -4px;
+            left: -4px;
+            cursor: sw-resize;
+        }
+
+        .crop-handle.se {
+            bottom: -4px;
+            right: -4px;
+            cursor: se-resize;
+        }
     </style>
 </head>
 
@@ -673,16 +766,26 @@
         <!-- Сайдбар чатов -->
         <div class="channels-sidebar">
             <div class="sidebar-header">
-                <span>Чаты</span>
-                <span @click="createNewChat">+</span>
+                <span x-text="activeTab === 'chats' ? 'Чаты' : 'Пользователи'"></span>
+                <span @click="createNewChat" x-show="activeTab === 'chats'">+</span>
             </div>
-            <div class="search-box">Поиск чатов</div>
-            <div class="chats-list">
-                <template x-for="chat in chats" :key="chat.id">
+            <div style="display: flex; margin: 8px 16px; gap: 4px;">
+                <button @click="activeTab = 'chats'" :class="activeTab === 'chats' ? 'btn-primary' : 'btn-secondary'"
+                    style="flex: 1; padding: 6px; border: none; border-radius: 4px; font-size: 0.8em; cursor: pointer;">Чаты</button>
+                <button @click="activeTab = 'users'" :class="activeTab === 'users' ? 'btn-primary' : 'btn-secondary'"
+                    style="flex: 1; padding: 6px; border: none; border-radius: 4px; font-size: 0.8em; cursor: pointer;">Поиск</button>
+            </div>
+            <input class="search-box" :placeholder="activeTab === 'chats' ? 'Поиск чатов' : 'Поиск пользователей'"
+                x-model="searchQuery" @input="debouncedSearch" style="border: none; color: white;">
+            <div class="chats-list" x-show="activeTab === 'chats'">
+                <template x-for="chat in chats">
                     <div class="chat-item" :class="{ active: activeChat === chat.id }" @click="selectChat(chat.id)">
                         <div class="chat-avatar">
-                            <img :src="chat.avatar_path" style="width: 100%;">
-                            <div class="chat-type-indicator" :class="'type-' + chat.type"></div>
+                            <img x-show="chat.avatar_path" :src="chat.avatar_path"
+                                style="width: 100%; border-radius: 50%;">
+                            <div x-show="!chat.avatar_path"
+                                style="width: 100%; height: 100%; background: #5865F2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-align: center; line-height: 2;"
+                                x-text="chat.name ? chat.name.charAt(0).toUpperCase() : '#'"></div>
                         </div>
                         <div class="chat-info">
                             <div class="chat-name" x-text="chat.name"></div>
@@ -690,25 +793,81 @@
                         </div>
                     </div>
                 </template>
+                <div x-show="chats.length === 0 && searchQuery.trim()" class="text-center"
+                    style="padding: 20px; color: #72767d;">
+                    Чаты не найдены
+                </div>
+            </div>
+            <div class="chats-list" x-show="activeTab === 'users'">
+                <template x-for="user in searchResults" :key="user.id">
+                    <div class="chat-item" @click="createPrivateChat(user.id)">
+                        <div class="chat-avatar">
+                            <img :src="user.avatar_path" style="width: 100%; border-radius: 50%;">
+                        </div>
+                        <div class="chat-info">
+                            <div class="chat-name" x-text="user.username"></div>
+                            <div class="chat-last-message" x-text="user.email"></div>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="searchResults.length === 0 && searchQuery.trim()" class="text-center"
+                    style="padding: 20px; color: #72767d;">
+                    Пользователи не найдены
+                </div>
             </div>
         </div>
 
         <!-- Основная область чата -->
+        <div class="chat-area" x-show="!activeChat"
+            style="display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 20px;">
+            <div style="font-size: 80px;">💬</div>
+            <div style="font-size: 2em; font-weight: bold; color: #fff;">Добро пожаловать в Suscord</div>
+            <div style="font-size: 1.2em; color: #72767d;">Выберите чат, чтобы начать общение или найдите друзей в
+                поиске</div>
+        </div>
         <div class="chat-area" x-show="activeChat">
             <div class="chat-header">
-                <div class="chat-header-info">
-                    <!-- <div class="chat-header-icon">
-                        <template x-if="getActiveChat()?.type === 'group'">#</template>
-                        <template x-if="getActiveChat()?.type === 'private'">👤</template>
-                    </div> -->
-                    <div class="chat-header-title" x-text="getActiveChatName()"></div>
-                    <div class="connection-status" x-show="isConnected"
-                        style="margin-left: 10px; color: var(--discord-success);">
-                        ●
+                <div class="chat-header-info"
+                    style="display: flex; align-items: center; width: 100%; justify-content: space-between;">
+                    <div style="display: flex; align-items: center;">
+                        <button @click="activeChat = null; window.history.pushState({}, '', '/')"
+                            style="background: transparent; border: none; color: white; font-size: 1.2em; cursor: pointer; padding: 8px; margin-right: 8px;">←</button>
+                        <div class="chat-header-title" x-text="getActiveChatName()"></div>
                     </div>
-                    <div class="connection-status" x-show="!isConnected"
-                        style="margin-left: 10px; color: var(--discord-danger);">
-                        ●
+                    <div x-show="getActiveChat()?.type === 'group'" x-data="{ showMenu: false }"
+                        style="position: relative;">
+                        <button @click="showMenu = !showMenu" @mouseenter="$event.target.style.background = '#40444b'"
+                            @mouseleave="$event.target.style.background = 'transparent'"
+                            style="background: transparent; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1.2em; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                            ☰
+                        </button>
+                        <div x-show="showMenu" @click.away="showMenu = false"
+                            style="position: absolute; top: 100%; right: 0; background: var(--discord-dark); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 1000; min-width: 150px; margin-top: 4px;">
+                            <button @click="editGroupChat(); showMenu = false"
+                                @mouseenter="$event.target.style.background = '#5865f2'"
+                                @mouseleave="$event.target.style.background = 'none'"
+                                style="width: 100%; background: none; color: white; border: none; padding: 12px 16px; text-align: left; cursor: pointer; border-radius: 8px 8px 0 0; transition: background 0.2s;">
+                                Редактировать
+                            </button>
+                            <button @click="inviteUserToChat(); showMenu = false"
+                                @mouseenter="$event.target.style.background = '#5865f2'"
+                                @mouseleave="$event.target.style.background = 'none'"
+                                style="width: 100%; background: none; color: white; border: none; padding: 12px 16px; text-align: left; cursor: pointer; transition: background 0.2s;">
+                                Пригласить
+                            </button>
+                            <button @click="leaveChat(); showMenu = false"
+                                @mouseenter="$event.target.style.background = '#f04747'; $event.target.style.color = 'white';"
+                                @mouseleave="$event.target.style.background = 'none'; $event.target.style.color = '#f04747';"
+                                style="width: 100%; background: none; color: #f04747; border: none; padding: 12px 16px; text-align: left; cursor: pointer; border-radius: 0 0 8px 8px; transition: background 0.2s;">
+                                Выйти
+                            </button>
+                        </div>
+                    </div>
+                    <div x-show="getActiveChat()?.type === 'private'" style="display: flex; gap: 8px;">
+                        <button @click="deleteChat()"
+                            style="background: #f04747; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                            Удалить чат
+                        </button>
                     </div>
                 </div>
             </div>
@@ -735,7 +894,8 @@
                                                     :alt="attachment.file_path"
                                                     @click="showImagePopup(attachment.file_path)"
                                                     style="cursor: pointer;">
-                                                <div class="attachment-delete" @click="deleteAttachment(attachment.id)"
+                                                <div x-show="currentUser && message.user_id === currentUser.id"
+                                                    class="attachment-delete" @click="deleteAttachment(attachment.id)"
                                                     title="Удалить">🗑️</div>
                                             </div>
                                         </div>
@@ -743,7 +903,8 @@
                                             <div class="attachment-container">
                                                 <video class="attachment-media" controls
                                                     :src="attachment.file_path"></video>
-                                                <div class="attachment-delete" @click="deleteAttachment(attachment.id)"
+                                                <div x-show="currentUser && message.user_id === currentUser.id"
+                                                    class="attachment-delete" @click="deleteAttachment(attachment.id)"
                                                     title="Удалить">🗑️</div>
                                             </div>
                                         </div>
@@ -818,10 +979,14 @@
         <!-- Правая панель участников -->
         <div class="members-sidebar" x-show="activeChat">
             <div class="members-title">УЧАСТНИКИ — <span x-text="onlineMembers.length"></span></div>
-            <template x-for="member in onlineMembers" :key="member.client_id || member.id">
+            <template x-for="member in onlineMembers" :key="member.id">
                 <div class="member-item">
                     <div class="member-avatar">
-                        <div class="status-indicator status-online"></div>
+                        <img x-show="member.avatar_path" :src="member.avatar_path"
+                            style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                        <div x-show="!member.avatar_path"
+                            style="width: 100%; height: 100%; background: #5865F2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;"
+                            x-text="(member.username || member.login).charAt(0).toUpperCase()"></div>
                     </div>
                     <div class="member-info">
                         <div class="member-name" x-text="member.username || member.login"></div>
@@ -867,6 +1032,26 @@
             </div>
         </template>
 
+        <!-- Уведомление о приглашении -->
+        <template x-if="inviteNotification.show">
+            <div class="invite-notification">
+                <div style="font-weight: bold; margin-bottom: 8px;">Вас приглашают в чат</div>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <button @click="acceptInvite()"
+                        style="flex: 1; background: var(--discord-success); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
+                        Принять
+                    </button>
+                    <button @click="declineInvite()"
+                        style="flex: 1; background: var(--discord-danger); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
+                        Отклонить
+                    </button>
+                </div>
+                <div class="invite-timer">
+                    <div class="invite-timer-bar" :style="`width: ${(inviteNotification.timeLeft / 10) * 100}%`"></div>
+                </div>
+            </div>
+        </template>
+
         <!-- Модальное окно для изображений -->
         <div class="modal fade" id="imageModal" tabindex="-1">
             <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -885,6 +1070,96 @@
                 </div>
             </div>
         </div>
+
+        <!-- Модальное окно приглашения -->
+        <template x-if="showInviteModal">
+            <div class="modal" style="display: block; background: rgba(0,0,0,0.5);"
+                @click.self="showInviteModal = false">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content bg-dark text-white">
+                        <div class="modal-header border-secondary">
+                            <h5 class="modal-title">Пригласить пользователей</h5>
+                            <button type="button" class="btn-close btn-close-white"
+                                @click="showInviteModal = false"></button>
+                        </div>
+                        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                            <template x-for="user in nonMembers" :key="user.id">
+                                <div class="d-flex align-items-center justify-content-between mb-3 p-2"
+                                    style="background: #40444b; border-radius: 8px;">
+                                    <div class="d-flex align-items-center">
+                                        <div class="member-avatar me-3">
+                                            <img :src="user.avatar_path" style="width: 100%; border-radius: 50%;">
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold" x-text="user.username"></div>
+                                            <div class="text-muted small" x-text="user.email"></div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm"
+                                        :class="inviteStates[user.id] ? 'btn-success' : 'btn-primary'"
+                                        @click="sendInvite(user.id)"
+                                        x-text="inviteStates[user.id] ? 'Отправлено' : 'Пригласить'">
+                                    </button>
+                                </div>
+                            </template>
+                            <div x-show="nonMembers.length === 0" class="text-center text-muted">
+                                Нет пользователей для приглашения
+                            </div>
+                        </div>
+                        <div class="modal-footer border-secondary">
+                            <button type="button" class="btn btn-secondary"
+                                @click="showInviteModal = false">Закрыть</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Модальное окно редактирования чата -->
+        <template x-if="showEditModal">
+            <div class="modal" style="display: block; background: rgba(0,0,0,0.5);" @click.self="showEditModal = false">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content bg-dark text-white">
+                        <div class="modal-header border-secondary">
+                            <h5 class="modal-title">Редактировать чат</h5>
+                            <button type="button" class="btn-close btn-close-white"
+                                @click="showEditModal = false"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Название чата</label>
+                                <input type="text" class="form-control bg-secondary text-white border-0"
+                                    x-model="editChatName" placeholder="Введите название">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Аватар чата</label>
+                                <input type="file" class="form-control bg-secondary text-white border-0"
+                                    x-ref="avatarInput" accept="image/*" @change="handleAvatarSelect">
+                            </div>
+                            <div x-show="avatarPreview" class="mb-3">
+                                <label class="form-label">Обрезка изображения</label>
+                                <div class="crop-container" x-data="cropTool()">
+                                    <img :src="avatarPreview" class="crop-image" x-ref="cropImage" @load="initCrop">
+                                    <div class="crop-overlay" x-ref="cropOverlay"
+                                        :style="`left: ${cropArea.x}px; top: ${cropArea.y}px; width: ${cropArea.width}px; height: ${cropArea.height}px`"
+                                        @mousedown="startDrag($event)">
+                                        <div class="crop-handle nw" @mousedown.stop="startResize($event, 'nw')"></div>
+                                        <div class="crop-handle ne" @mousedown.stop="startResize($event, 'ne')"></div>
+                                        <div class="crop-handle sw" @mousedown.stop="startResize($event, 'sw')"></div>
+                                        <div class="crop-handle se" @mousedown.stop="startResize($event, 'se')"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-secondary">
+                            <button type="button" class="btn btn-secondary"
+                                @click="showEditModal = false">Отмена</button>
+                            <button type="button" class="btn btn-primary" @click="saveGroupChat()">Сохранить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 
     <script>
@@ -913,21 +1188,65 @@
 
                 notification: { show: false, message: '', icon: 'ℹ️' },
                 currentImageSrc: '',
+                showInviteModal: false,
+                nonMembers: [],
+                inviteStates: {},
+                inviteNotification: { show: false, code: '', timeLeft: 10 },
+                searchQuery: '',
+                searchTimeout: null,
+                activeTab: 'chats',
+                searchResults: [],
+                allChats: [],
+                showEditModal: false,
+                editChatName: '',
+                selectedAvatar: null,
+                avatarPreview: null,
 
                 init() {
                     window.servers = this.servers;
                     this.loadCurrentUser();
-                    this.loadChats();
+                    this.loadChats().then(() => {
+                        const pathParts = window.location.pathname.split('/');
+                        if (pathParts[1] === 'chats' && pathParts[2]) {
+                            const chatId = parseInt(pathParts[2]);
+                            if (chatId) {
+                                this.activeChat = null;
+                                this.selectChat(chatId);
+                            }
+                        }
+                    });
                     this.connectWebSocket();
+
+                    // Очищаем поиск при переключении вкладок
+                    this.$watch('activeTab', () => {
+                        this.searchQuery = '';
+                        this.searchResults = [];
+                    });
+
+                    window.addEventListener('popstate', () => {
+                        const pathParts = window.location.pathname.split('/');
+                        if (pathParts[1] === 'chats' && pathParts[2]) {
+                            const chatId = parseInt(pathParts[2]);
+                            if (chatId) {
+                                this.activeChat = null;
+                                this.selectChat(chatId);
+                            }
+                        } else {
+                            this.activeChat = null;
+                        }
+                    });
                 },
 
                 async loadChats() {
                     try {
                         const res = await fetch('/api/v1/chats');
                         if (res.ok) {
-                            this.chats = [...(await res.json())];
+                            this.allChats = [...(await res.json())];
+                            this.chats = [...this.allChats];
+                            return true;
                         }
                     } catch (e) { console.error(e); }
+                    return false;
                 },
 
                 get messages() {
@@ -938,7 +1257,7 @@
                     if (this.activeChat === chatId) return;
 
                     this.activeChat = chatId;
-                    this.onlineMembers = [];
+                    window.history.pushState({}, '', `/chats/${chatId}`);
 
                     if (!this.chatMessages[chatId]) {
                         this.chatMessages[chatId] = [];
@@ -950,7 +1269,7 @@
                         await this.loadLatestMessages();
                     }
 
-
+                    await this.loadChatMembers();
                     setTimeout(() => this.scrollToBottom(), 100);
                 },
 
@@ -1066,6 +1385,7 @@
                             return;
                         }
 
+                        this.moveChatToTop(this.activeChat);
                         setTimeout(() => this.scrollToBottom(), 100);
                     } catch (e) {
                         console.error('Send message error:', e);
@@ -1074,8 +1394,6 @@
                         this.selectedFiles = files;
                     }
                 },
-
-
 
                 handleFileSelect(event) {
                     const files = Array.from(event.target.files);
@@ -1124,37 +1442,28 @@
                 async deleteAttachment(attachmentId) {
                     if (!confirm('Вы уверены, что хотите удалить этот файл?')) return;
 
-                    try {
-                        const res = await fetch(`/api/v1/attachments/${attachmentId}`, {
-                            method: 'DELETE'
-                        });
-                        if (res.ok) {
-                            // Удаляем attachment из всех сообщений в текущем чате
-                            const messages = this.chatMessages[this.activeChat];
-                            if (messages) {
-                                for (let i = messages.length - 1; i >= 0; i--) {
-                                    const message = messages[i];
-                                    if (message.attachments) {
-                                        message.attachments = message.attachments.filter(att => att.id !== attachmentId);
-                                        // Если у сообщения нет attachments и content пустой, удаляем сообщение
-                                        if (message.attachments.length === 0 && (!message.content || message.content.trim() === '')) {
-                                            messages.splice(i, 1);
-                                        }
+                    const { ok } = await this.apiCall(`/api/v1/attachments/${attachmentId}`, { method: 'DELETE' });
+                    if (ok) {
+                        const messages = this.chatMessages[this.activeChat];
+                        if (messages) {
+                            for (let i = messages.length - 1; i >= 0; i--) {
+                                const message = messages[i];
+                                if (message.attachments) {
+                                    message.attachments = message.attachments.filter(att => att.id !== attachmentId);
+                                    if (message.attachments.length === 0 && !message.content?.trim()) {
+                                        messages.splice(i, 1);
                                     }
                                 }
                             }
-                            this.showNotification('Файл удалён', '✅');
-                        } else {
-                            this.showNotification('Ошибка удаления', '❌');
                         }
-                    } catch (e) {
-                        console.error(e);
+                        this.showNotification('Файл удалён', '✅');
+                    } else {
                         this.showNotification('Ошибка удаления', '❌');
                     }
                 },
 
                 getActiveChat() {
-                    return this.chats.find(c => c.id === this.activeChat);
+                    return this.allChats.find(c => c.id === this.activeChat) || this.chats.find(c => c.id === this.activeChat);
                 },
 
                 getActiveChatName() {
@@ -1165,6 +1474,308 @@
                 getActiveFriendName() {
                     const chat = this.getActiveChat();
                     return chat ? chat.name : 'Пользователь';
+                },
+
+                async createNewChat() {
+                    try {
+                        const name = prompt('Название группы:');
+                        if (!name) return;
+
+                        const res = await fetch('/api/v1/chats/group', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: name,
+                                avatar_path: ''
+                            })
+                        });
+
+                        if (res.ok) {
+                            const chat = await res.json();
+                            this.chats.unshift(chat);
+                            this.showNotification('Чат создан', '✅');
+                        } else {
+                            this.showNotification('Ошибка создания чата', '❌');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showNotification('Ошибка создания чата', '❌');
+                    }
+                },
+
+                async inviteUserToChat() {
+                    const chat = this.getActiveChat();
+                    if (!chat || chat.type !== 'group') {
+                        this.showNotification('Можно приглашать только в групповые чаты', '❌');
+                        return;
+                    }
+
+                    await this.loadNonMembers();
+                    this.showInviteModal = true;
+                },
+
+                async loadNonMembers() {
+                    try {
+                        const res = await fetch(`/api/v1/chats/${this.activeChat}/non-members`);
+                        if (res.ok) {
+                            this.nonMembers = await res.json();
+                            this.inviteStates = {};
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                },
+
+                async sendInvite(userId) {
+                    try {
+                        const res = await fetch(`/api/v1/chats/${this.activeChat}/invite`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user_id: userId })
+                        });
+
+                        if (res.ok) {
+                            this.inviteStates[userId] = true;
+                        } else {
+                            this.showNotification('Ошибка отправки приглашения', '❌');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showNotification('Ошибка отправки приглашения', '❌');
+                    }
+                },
+
+                async loadChatMembers() {
+                    if (!this.activeChat) return;
+
+                    try {
+                        const res = await fetch(`/api/v1/chats/${this.activeChat}/members`);
+                        if (res.ok) {
+                            this.onlineMembers = await res.json();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                },
+
+                showInviteNotification(code) {
+                    this.inviteNotification = { show: true, code: code, timeLeft: 10 };
+
+                    const timer = setInterval(() => {
+                        this.inviteNotification.timeLeft--;
+                        if (this.inviteNotification.timeLeft <= 0) {
+                            this.inviteNotification.show = false;
+                            clearInterval(timer);
+                        }
+                    }, 1000);
+                },
+
+                async acceptInvite() {
+                    try {
+                        const res = await fetch(`/api/v1/chats/invite/accept/${this.inviteNotification.code}`);
+                        if (res.ok) {
+                            this.inviteNotification.show = false;
+                            await this.loadChats();
+                            this.showNotification('Приглашение принято', '✅');
+                        } else {
+                            this.showNotification('Ошибка принятия приглашения', '❌');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showNotification('Ошибка принятия приглашения', '❌');
+                    }
+                },
+
+                declineInvite() {
+                    this.inviteNotification.show = false;
+                },
+
+                async leaveChat() {
+                    if (!this.activeChat || !confirm('Вы уверены, что хотите покинуть этот чат?')) return;
+
+                    try {
+                        const res = await this.apiCall(`/api/v1/chats/${this.activeChat}/leave`);
+                        if (res.ok) {
+                            this.showNotification('Вы покинули чат', '✓');
+                            this.activeChat = null;
+                            await this.loadChats();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showNotification('Ошибка при выходе из чата', '⚠️');
+                    }
+                },
+
+                async deleteChat() {
+                    if (!this.activeChat || !confirm('Вы уверены, что хотите удалить этот чат?')) return;
+
+                    try {
+                        const res = await this.apiCall(`/api/v1/chats/${this.activeChat}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            this.showNotification('Чат удалён', '✅');
+                            this.activeChat = null;
+                            await this.loadChats();
+                        } else {
+                            this.showNotification('Ошибка удаления чата', '❌');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showNotification('Ошибка удаления чата', '❌');
+                    }
+                },
+
+                editGroupChat() {
+                    const chat = this.getActiveChat();
+                    if (!chat || chat.type !== 'group') return;
+
+                    this.editChatName = chat.name;
+                    this.selectedAvatar = null;
+                    this.avatarPreview = null;
+                    this.showEditModal = true;
+                },
+
+                cropTool() {
+                    return {
+                        cropArea: { x: 50, y: 50, width: 200, height: 200 },
+                        isDragging: false,
+                        startPos: { x: 0, y: 0 },
+
+                        initCrop() {
+                            const img = this.$refs.cropImage;
+                            if (!img) return;
+
+                            const size = Math.min(img.offsetWidth, img.offsetHeight) * 0.7;
+                            this.cropArea = {
+                                x: (img.offsetWidth - size) / 2,
+                                y: (img.offsetHeight - size) / 2,
+                                width: size,
+                                height: size
+                            };
+                        },
+
+                        startDrag(e) {
+                            this.isDragging = true;
+                            this.startPos = { x: e.clientX - this.cropArea.x, y: e.clientY - this.cropArea.y };
+                            document.addEventListener('mousemove', this.drag.bind(this));
+                            document.addEventListener('mouseup', this.stopDrag.bind(this));
+                        },
+
+                        drag(e) {
+                            if (!this.isDragging) return;
+                            const img = this.$refs.cropImage;
+                            const newX = Math.max(0, Math.min(e.clientX - this.startPos.x, img.offsetWidth - this.cropArea.width));
+                            const newY = Math.max(0, Math.min(e.clientY - this.startPos.y, img.offsetHeight - this.cropArea.height));
+                            this.cropArea.x = newX;
+                            this.cropArea.y = newY;
+                        },
+
+                        stopDrag() {
+                            this.isDragging = false;
+                            document.removeEventListener('mousemove', this.drag.bind(this));
+                            document.removeEventListener('mouseup', this.stopDrag.bind(this));
+                        }
+                    };
+                },
+
+                handleAvatarSelect(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        this.selectedAvatar = file;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.avatarPreview = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                },
+
+                async getCroppedImage() {
+                    if (!this.avatarPreview) return this.selectedAvatar;
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+
+                    return new Promise((resolve) => {
+                        img.onload = () => {
+                            const cropOverlay = document.querySelector('.crop-overlay');
+                            if (!cropOverlay) {
+                                resolve(this.selectedAvatar);
+                                return;
+                            }
+
+                            const cropImg = document.querySelector('.crop-image');
+                            const rect = cropOverlay.getBoundingClientRect();
+                            const imgRect = cropImg.getBoundingClientRect();
+
+                            const scaleX = img.naturalWidth / imgRect.width;
+                            const scaleY = img.naturalHeight / imgRect.height;
+
+                            const cropX = (rect.left - imgRect.left) * scaleX;
+                            const cropY = (rect.top - imgRect.top) * scaleY;
+                            const cropWidth = rect.width * scaleX;
+                            const cropHeight = rect.height * scaleY;
+
+                            canvas.width = cropWidth;
+                            canvas.height = cropHeight;
+
+                            ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+                            canvas.toBlob((blob) => {
+                                const croppedFile = new File([blob], this.selectedAvatar.name, { type: this.selectedAvatar.type });
+                                resolve(croppedFile);
+                            }, this.selectedAvatar.type);
+                        };
+                        img.src = this.avatarPreview;
+                    });
+                },
+
+                async saveGroupChat() {
+                    if (!this.activeChat) return;
+
+                    try {
+                        const formData = new FormData();
+
+                        if (this.editChatName.trim()) {
+                            formData.append('name', this.editChatName.trim());
+                        }
+
+                        if (this.selectedAvatar) {
+                            const croppedFile = await this.getCroppedImage();
+                            formData.append('file', croppedFile);
+                        }
+
+                        const res = await fetch(`/api/v1/chats/${this.activeChat}`, {
+                            method: 'PATCH',
+                            body: formData
+                        });
+
+                        if (res.ok) {
+                            const updatedChat = await res.json();
+
+                            // Обновляем чат в списке
+                            const chatIndex = this.chats.findIndex(c => c.id === this.activeChat);
+                            if (chatIndex !== -1) {
+                                this.chats[chatIndex] = { ...this.chats[chatIndex], ...updatedChat };
+                            }
+
+                            const allChatIndex = this.allChats.findIndex(c => c.id === this.activeChat);
+                            if (allChatIndex !== -1) {
+                                this.allChats[allChatIndex] = { ...this.allChats[allChatIndex], ...updatedChat };
+                            }
+
+                            // Сбрасываем переменные
+                            this.avatarPreview = null;
+                            this.selectedAvatar = null;
+                            this.showEditModal = false;
+                            this.showNotification('Чат обновлён', '✅');
+                        } else {
+                            this.showNotification('Ошибка обновления чата', '❌');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showNotification('Ошибка обновления чата', '❌');
+                    }
                 },
 
                 getLastMessage(chatId) {
@@ -1203,7 +1814,7 @@
                 async handleWsMessage(msg) {
                     switch (msg.type) {
                         case 'message':
-                            const chatId = msg.data.chat_id;
+                            let chatId = msg.data.chat_id;
                             if (!this.chatMessages[chatId]) {
                                 this.chatMessages[chatId] = [];
                                 this.chatStates[chatId] = {
@@ -1227,29 +1838,203 @@
                             this.chatMessages[chatId].push(processedMsg);
                             this.trimMessages();
 
+                            this.moveChatToTop(chatId);
                             if (chatId === this.activeChat) {
                                 setTimeout(() => this.scrollToBottom(), 100);
                             }
                             break;
 
-                        case 'user_joined':
-                            if (!this.onlineMembers.find(m => m.client_id === msg.data.client_id)) {
-                                this.onlineMembers.push(msg.data);
+                        case 'message_update':
+                            this.handleMessageUpdate(msg.data);
+                            break;
+
+                        case 'message_delete':
+                            this.handleMessageDelete(msg.data);
+                            break;
+
+                        case 'joined_chat':
+                            {
+                                const chat = this.chats.find(c => c.id === msg.data.chat.id);
+                                if (!chat) {
+                                    this.chats.unshift({
+                                        id: msg.data.chat.id,
+                                        name: msg.data.chat.name,
+                                        avatar_path: msg.data.chat.avatar_path,
+                                        type: 'private'
+                                    });
+                                }
                             }
+
+                            break;
+
+                        case 'new_user_in_chat':
+                            const member = this.onlineMembers.find(m => m.id === msg.data.user.id);
+
+                            if (msg.data.chat_id === this.activeChat && !member) {
+                                this.onlineMembers.push(msg.data.user);
+                                this.showNotification(`${msg.data.user.username} зашел в чат`, '👋');
+                            }
+
                             break;
 
                         case 'user_left':
-                            this.onlineMembers = this.onlineMembers.filter(m => m.client_id !== msg.data.client_id);
+                            if (msg.data.chat_id === this.activeChat) {
+                                const member = this.onlineMembers.find(c => c.id === msg.data.user_id);
+                                this.showNotification(`${member.username} покинул чат`, '🚪');
+                                this.onlineMembers = this.onlineMembers.filter(m => m.id !== msg.data.user_id);
+                            }
                             break;
 
+                        case 'delete_chat':
+                            {
+                                if (msg.data.chat_id === this.activeChat) {
+                                    this.onlineMembers = [];
+                                    this.activeChat = null;
+                                }
 
+                                const chat = this.chats.find(c => c.id === msg.data.chat_id);
+                                this.chats = this.chats.filter(c => c.id !== msg.data.chat_id);
+                                this.showNotification(`Чат ${chat?.name || '"нет имени"'} удален`, '🗑️');
+                            }
+                            break;
+
+                        case 'invite_to_chat':
+                            this.showInviteNotification(msg.data.code);
+                            break;
+
+                        case 'update_group_chat':
+                            {
+                                const updatedChat = msg.data.chat;
+                                const chatIndex = this.chats.findIndex(c => c.id === updatedChat.id);
+                                if (chatIndex !== -1) {
+                                    this.chats[chatIndex] = { ...this.chats[chatIndex], ...updatedChat };
+                                }
+                                const allChatIndex = this.allChats.findIndex(c => c.id === updatedChat.id);
+                                if (allChatIndex !== -1) {
+                                    this.allChats[allChatIndex] = { ...this.allChats[allChatIndex], ...updatedChat };
+                                }
+                                this.showNotification(`Чат ${chat?.name} был обновлен`, '🔄');
+                            }
+                            break;
 
                         default:
                             console.log('WS:', msg);
                     }
                 },
 
+                handleMessageUpdate(data) {
+                    const messages = this.chatMessages[data.chat_id];
+                    if (messages) {
+                        const messageIndex = messages.findIndex(m => m.id === data.id);
+                        if (messageIndex !== -1) {
+                            messages[messageIndex] = {
+                                ...messages[messageIndex],
+                                content: data.content,
+                                attachments: data.attachments || []
+                            };
+                        }
+                    }
+                },
 
+                handleMessageDelete(data) {
+                    this.removeMessage(data.chat_id, data.ID);
+                },
+
+                // Утилиты
+                async apiCall(url, options = {}) {
+                    try {
+                        const res = await fetch(url, options);
+                        let data = null;
+                        if (res.ok) {
+                            try {
+                                data = await res.json();
+                            } catch {
+                                data = null;
+                            }
+                        }
+                        return { ok: res.ok, data };
+                    } catch (e) {
+                        console.error(e);
+                        return { ok: false, data: null };
+                    }
+                },
+
+                moveChatToTop(chatId) {
+                    const index = this.chats.findIndex(c => c.id === chatId);
+                    if (index > 0) {
+                        const chat = this.chats.splice(index, 1)[0];
+                        this.chats.unshift(chat);
+                    }
+                },
+
+                debouncedSearch() {
+                    clearTimeout(this.searchTimeout);
+                    this.searchTimeout = setTimeout(() => {
+                        if (this.activeTab === 'chats') {
+                            this.searchChats();
+                        } else {
+                            this.searchUsers();
+                        }
+                    }, 300);
+                },
+
+                async searchChats() {
+                    const query = this.searchQuery.trim();
+                    if (!query) {
+                        this.chats = [...this.allChats];
+                        return;
+                    }
+                    const { ok, data } = await this.apiCall(`/api/v1/chats?search=${encodeURIComponent(query)}`);
+                    if (ok && data) this.chats = data;
+                },
+
+                async searchUsers() {
+                    const query = this.searchQuery.trim();
+                    if (!query) {
+                        this.searchResults = [];
+                        return;
+                    }
+                    const { ok, data } = await this.apiCall(`/api/v1/users?search=${encodeURIComponent(query)}`);
+                    if (ok && data) this.searchResults = data;
+                },
+
+                async createPrivateChat(userId) {
+                    try {
+                        const res = await fetch('/api/v1/chats/private', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user_id: userId })
+                        });
+
+                        if (res.ok) {
+                            const chat = await res.json();
+                            const existingChat = this.chats.find(c => c.id === chat.id);
+                            if (!existingChat) {
+                                this.chats.unshift(chat);
+                            }
+                            this.activeTab = 'chats';
+                            this.selectChat(chat.id);
+                            this.searchQuery = '';
+                            this.searchResults = [];
+                            this.showNotification('Приватный чат создан', '✅');
+                        } else {
+                            this.showNotification('Ошибка создания чата', '❌');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showNotification('Ошибка создания чата', '❌');
+                    }
+                },
+
+                findMessage(chatId, messageId) {
+                    const messages = this.chatMessages[chatId];
+                    return messages ? messages.findIndex(m => m.id === messageId) : -1;
+                },
+
+                removeMessage(chatId, messageId) {
+                    const index = this.findMessage(chatId, messageId);
+                    if (index !== -1) this.chatMessages[chatId].splice(index, 1);
+                },
 
                 getCookie(name) {
                     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
@@ -1318,10 +2103,6 @@
                     }
                 },
 
-                createNewChat() {
-                    this.showNotification('Создание чатов пока не реализовано', 'ℹ️');
-                },
-
                 async editMessage(message) {
                     const newContent = prompt('Редактировать сообщение:', message.content);
                     if (newContent && newContent !== message.content) {
@@ -1343,23 +2124,14 @@
                 },
 
                 async deleteMessage(messageId) {
-                    if (confirm('Удалить сообщение?')) {
-                        try {
-                            const res = await fetch(`/api/v1/messages/${messageId}`, {
-                                method: 'DELETE'
-                            });
-                            if (res.ok) {
-                                const messages = this.chatMessages[this.activeChat];
-                                const index = messages.findIndex(m => m.id === messageId);
-                                if (index !== -1) {
-                                    messages.splice(index, 1);
-                                }
-                                this.showNotification('Сообщение удалено', '✅');
-                            }
-                        } catch (e) {
-                            console.error('Delete message error:', e);
-                            this.showNotification('Ошибка удаления', '❌');
-                        }
+                    if (!confirm('Удалить сообщение?')) return;
+
+                    const { ok } = await this.apiCall(`/api/v1/messages/${messageId}`, { method: 'DELETE' });
+                    if (ok) {
+                        this.removeMessage(this.activeChat, messageId);
+                        this.showNotification('Сообщение удалено', '✅');
+                    } else {
+                        this.showNotification('Ошибка удаления', '❌');
                     }
                 },
 

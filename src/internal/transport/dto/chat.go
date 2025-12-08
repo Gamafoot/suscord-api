@@ -8,16 +8,14 @@ type Chat struct {
 }
 
 type CreatePrivateChatRequest struct {
-	FriendID uint `json:"friend_id" validate:"required"`
+	UserID uint `json:"user_id" validate:"required"`
 }
 
 type CreateGroupChatRequest struct {
-	FriendID   uint   `json:"friend_id" validate:"required"`
 	Name       string `json:"name" validate:"required"`
 	AvatarPath string `json:"avatar_path"`
 }
 
 type UpdateGroupChatInput struct {
-	Name       *string `json:"name"`
-	AvatarPath *string `json:"avatar_path"`
+	Name *string `form:"name"`
 }

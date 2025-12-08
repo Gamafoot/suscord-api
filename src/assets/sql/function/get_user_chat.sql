@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION public.get_user_chat(p_chat_id bigint, p_user_id bigint)
- RETURNS TABLE(id bigint, name character varying, avatar_url character varying, type character varying)
+ RETURNS SETOF chat_record
  LANGUAGE plpgsql
 AS $function$
 BEGIN

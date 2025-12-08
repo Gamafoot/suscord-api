@@ -7,4 +7,5 @@ type Service interface {
 	ChatMember() ChatMemberService
 	Message() MessageService
 	Attachment() AttachementService
+	File() FileService
 }

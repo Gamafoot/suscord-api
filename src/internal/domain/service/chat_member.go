@@ -6,6 +6,9 @@ import (
 )
 
 type ChatMemberService interface {
-	GetChatMembers(ctx context.Context, chatID, memberID uint) ([]*entity.User, error)
-	AddUserToChat(ctx context.Context, chatID, memberID, userID uint) error
+	GetNonMembers(ctx context.Context, chatID, memberID uint) ([]*entity.User, error)
+	GetNotChatMembers(ctx context.Context, chatID, memberID uint) ([]*entity.User, error)
+	SendInvite(ctx context.Context, ownerID, chatID, userID uint) error
+	AcceptInvite(ctx context.Context, userID uint, code string) error
+	LeaveFromChat(ctx context.Context, chatID, userID uint) error
 }
