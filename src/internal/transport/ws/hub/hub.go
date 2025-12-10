@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"fmt"
 	"net/http"
 	"suscord/internal/config"
 	domainError "suscord/internal/domain/errors"
@@ -140,26 +141,22 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 		return err
 	}
 
-	err = hub.receiveMessageHandler(conn, client)
-	if err != nil {
-		return err
-	}
-
+	hub.receiveMessageHandler(conn, client)
 	return nil
 }
 
-func (hub *Hub) receiveMessageHandler(conn *websocket.Conn, client *Client) error {
+func (hub *Hub) receiveMessageHandler(conn *websocket.Conn, client *Client) {
 	for {
 		message := new(dto.ClientMessage)
 		err := conn.ReadJSON(message)
 		if err != nil {
 			hub.unregister <- client
-			return pkgErrors.WithStack(err)
+			return
 		}
 
 		err = hub.handleClientMessage(client, message)
 		if err != nil {
-			return err
+			fmt.Printf("%+v\n", err)
 		}
 	}
 }

@@ -744,10 +744,49 @@
             right: -4px;
             cursor: se-resize;
         }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #36393f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 99999;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #40444b;
+            border-top-color: #5865f2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
 <body>
+    <!-- Экран загрузки -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <div style="font-size: 1.2em; color: #b9bbbe;">Подключение к серверу...</div>
+    </div>
+
     <div x-data="discordApp()" class="app-container">
         <!-- Сайдбар серверов -->
         <div class="servers-sidebar">
@@ -834,40 +873,60 @@
                             style="background: transparent; border: none; color: white; font-size: 1.2em; cursor: pointer; padding: 8px; margin-right: 8px;">←</button>
                         <div class="chat-header-title" x-text="getActiveChatName()"></div>
                     </div>
-                    <div x-show="getActiveChat()?.type === 'group'" x-data="{ showMenu: false }"
-                        style="position: relative;">
-                        <button @click="showMenu = !showMenu" @mouseenter="$event.target.style.background = '#40444b'"
-                            @mouseleave="$event.target.style.background = 'transparent'"
-                            style="background: transparent; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1.2em; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
-                            ☰
+                    <div style="display: flex; gap: 8px;">
+                        <button @click="startCall()" @mouseenter="$event.target.style.background = '#43b581'"
+                            @mouseleave="$event.target.style.background = '#5865f2'"
+                            style="background: #5865f2; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 8px 12px; font-size: 1.2em; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                            📞
                         </button>
-                        <div x-show="showMenu" @click.away="showMenu = false"
-                            style="position: absolute; top: 100%; right: 0; background: var(--discord-dark); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 1000; min-width: 150px; margin-top: 4px;">
-                            <button @click="editGroupChat(); showMenu = false"
-                                @mouseenter="$event.target.style.background = '#5865f2'"
-                                @mouseleave="$event.target.style.background = 'none'"
-                                style="width: 100%; background: none; color: white; border: none; padding: 12px 16px; text-align: left; cursor: pointer; border-radius: 8px 8px 0 0; transition: background 0.2s;">
-                                Редактировать
+                        <div x-show="getActiveChat()?.type === 'group'" x-data="{ showMenu: false }"
+                            style="position: relative;">
+                            <button @click="showMenu = !showMenu"
+                                @mouseenter="$event.target.style.background = '#40444b'"
+                                @mouseleave="$event.target.style.background = 'transparent'"
+                                style="background: transparent; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1.2em; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                                ☰
                             </button>
-                            <button @click="inviteUserToChat(); showMenu = false"
-                                @mouseenter="$event.target.style.background = '#5865f2'"
-                                @mouseleave="$event.target.style.background = 'none'"
-                                style="width: 100%; background: none; color: white; border: none; padding: 12px 16px; text-align: left; cursor: pointer; transition: background 0.2s;">
-                                Пригласить
-                            </button>
-                            <button @click="leaveChat(); showMenu = false"
-                                @mouseenter="$event.target.style.background = '#f04747'; $event.target.style.color = 'white';"
-                                @mouseleave="$event.target.style.background = 'none'; $event.target.style.color = '#f04747';"
-                                style="width: 100%; background: none; color: #f04747; border: none; padding: 12px 16px; text-align: left; cursor: pointer; border-radius: 0 0 8px 8px; transition: background 0.2s;">
-                                Выйти
-                            </button>
+                            <div x-show="showMenu" @click.away="showMenu = false"
+                                style="position: absolute; top: 100%; right: 0; background: var(--discord-dark); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 1000; min-width: 150px; margin-top: 4px;">
+                                <button @click="editGroupChat(); showMenu = false"
+                                    @mouseenter="$event.target.style.background = '#5865f2'"
+                                    @mouseleave="$event.target.style.background = 'none'"
+                                    style="width: 100%; background: none; color: white; border: none; padding: 12px 16px; text-align: left; cursor: pointer; border-radius: 8px 8px 0 0; transition: background 0.2s;">
+                                    Редактировать
+                                </button>
+                                <button @click="inviteUserToChat(); showMenu = false"
+                                    @mouseenter="$event.target.style.background = '#5865f2'"
+                                    @mouseleave="$event.target.style.background = 'none'"
+                                    style="width: 100%; background: none; color: white; border: none; padding: 12px 16px; text-align: left; cursor: pointer; transition: background 0.2s;">
+                                    Пригласить
+                                </button>
+                                <button @click="leaveChat(); showMenu = false"
+                                    @mouseenter="$event.target.style.background = '#f04747'; $event.target.style.color = 'white';"
+                                    @mouseleave="$event.target.style.background = 'none'; $event.target.style.color = '#f04747';"
+                                    style="width: 100%; background: none; color: #f04747; border: none; padding: 12px 16px; text-align: left; cursor: pointer; border-radius: 0 0 8px 8px; transition: background 0.2s;">
+                                    Выйти
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <div x-show="getActiveChat()?.type === 'private'" style="display: flex; gap: 8px;">
-                        <button @click="deleteChat()"
-                            style="background: #f04747; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
-                            Удалить чат
-                        </button>
+                        <div x-show="getActiveChat()?.type === 'private'" x-data="{ showMenu: false }"
+                            style="position: relative;">
+                            <button @click="showMenu = !showMenu"
+                                @mouseenter="$event.target.style.background = '#40444b'"
+                                @mouseleave="$event.target.style.background = 'transparent'"
+                                style="background: transparent; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1.2em; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                                ☰
+                            </button>
+                            <div x-show="showMenu" @click.away="showMenu = false"
+                                style="position: absolute; top: 100%; right: 0; background: var(--discord-dark); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 1000; min-width: 150px; margin-top: 4px;">
+                                <button @click="deleteChat(); showMenu = false"
+                                    @mouseenter="$event.target.style.background = '#f04747'; $event.target.style.color = 'white';"
+                                    @mouseleave="$event.target.style.background = 'none'; $event.target.style.color = '#f04747';"
+                                    style="width: 100%; background: none; color: #f04747; border: none; padding: 12px 16px; text-align: left; cursor: pointer; border-radius: 8px; transition: background 0.2s;">
+                                    Удалить чат
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -995,31 +1054,115 @@
             </template>
         </div>
 
-        <!-- Окно звонка (заглушка) -->
+        <!-- Окно звонка -->
         <template x-if="isCallActive">
             <div class="call-container">
-                <div class="call-window">
-                    <div class="call-header">
-                        <div class="call-info">
-                            <div class="call-avatar"></div>
-                            <div class="call-details">
-                                <div class="call-name" x-text="getActiveFriendName()">Звонок</div>
-                                <div class="call-status">В звонке</div>
+                <!-- Минимальное окно при исходящем звонке -->
+                <div x-show="callStatus !== 'В звонке'" class="call-window" style="max-width: 400px; height: auto;">
+                    <div style="padding: 30px; background: #292b2f; text-align: center;">
+                        <div style="font-size: 4em; margin-bottom: 20px;">📞</div>
+                        <h4 class="mb-2" x-text="getActiveChatName()"></h4>
+                        <div class="text-success mb-4" x-text="callStatus"></div>
+                        <button @click="endCall" class="btn btn-danger">
+                            <span style="font-size: 1.2em;">📞</span> Завершить звонок
+                        </button>
+                    </div>
+                    <audio x-ref="remoteAudio" autoplay style="display: none;"></audio>
+                    <audio x-ref="localAudio" muted style="display: none;"></audio>
+                </div>
+
+                <!-- Полное окно после принятия звонка -->
+                <div x-show="callStatus === 'В звонке'" class="call-window" style="max-width: 600px;">
+                    <div
+                        style="padding: 20px; background: #292b2f; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h4 class="mb-1" x-text="getActiveChatName()"></h4>
+                            <small class="text-success" x-text="callStatus"></small>
+                        </div>
+                        <button @click="endCall" class="btn btn-danger btn-sm">
+                            <span style="font-size: 1.2em;">📞</span> Завершить
+                        </button>
+                    </div>
+
+                    <div style="flex: 1; overflow-y: auto; padding: 20px; background: #36393f;">
+                        <!-- Управление микрофоном -->
+                        <div class="card bg-dark text-white mb-3">
+                            <div class="card-header">
+                                <strong>🎤 Ваш микрофон</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span>Микрофон</span>
+                                    <button @click="toggleMute" class="btn btn-sm"
+                                        :class="isMuted ? 'btn-danger' : 'btn-success'">
+                                        <span x-text="isMuted ? '🔇 Включить' : '🎤 Выключить'"></span>
+                                    </button>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span>Шумоподавление</span>
+                                    <button @click="toggleNoiseSuppression" class="btn btn-sm"
+                                        :class="noiseSuppression ? 'btn-success' : 'btn-secondary'">
+                                        <span x-text="noiseSuppression ? '✅ Вкл' : '❌ Выкл'"></span>
+                                    </button>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label small">Чувствительность: <strong
+                                            x-text="inputSensitivity + ' dB'"></strong></label>
+                                    <input type="range" class="form-range" min="-60" max="60" :value="inputSensitivity"
+                                        @input="setInputSensitivity($event.target.value)">
+                                    <div class="d-flex justify-content-between">
+                                        <small class="text-muted">Тихо</small>
+                                        <small class="text-muted">Громко</small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="call-controls">
-                            <div class="call-button mute" @click="toggleMute">
-                                <span x-text="isMuted ? '🎤' : '🔇'"></span>
+
+                        <!-- Участники -->
+                        <div class="card bg-dark text-white">
+                            <div class="card-header">
+                                <strong>👥 Участники</strong>
                             </div>
-                            <div class="call-button video" @click="toggleVideo">
-                                <span x-text="isVideoOn ? '📹' : '📷'"></span>
+                            <div class="card-body p-2">
+                                <template x-for="member in onlineMembers.filter(m => m.id !== currentUser?.id)"
+                                    :key="member.id">
+                                    <div class="card bg-secondary mb-2">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #5865F2; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 12px;"
+                                                    x-text="(member.username || member.login).charAt(0).toUpperCase()">
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-bold" x-text="member.username || member.login"></div>
+                                                    <small class="text-success">В звонке</small>
+                                                </div>
+                                                <button @click="toggleRemoteMute" class="btn btn-sm"
+                                                    :class="remoteMuted ? 'btn-danger' : 'btn-outline-light'">
+                                                    <span x-text="remoteMuted ? '🔇' : '🔊'"></span>
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label class="form-label small mb-1">Громкость: <strong
+                                                        x-text="remoteVolume + '%'"></strong></label>
+                                                <input type="range" class="form-range" min="0" max="200"
+                                                    :value="remoteVolume" @input="setRemoteVolume($event.target.value)">
+                                                <div class="d-flex justify-content-between">
+                                                    <small class="text-muted">0%</small>
+                                                    <small class="text-muted">100%</small>
+                                                    <small class="text-muted">200%</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
-                            <div class="call-button end-call" @click="endCall">📞</div>
                         </div>
                     </div>
-                    <div class="call-content">
-                        <div>Звонки пока не реализованы на фронте</div>
-                    </div>
+
+                    <audio x-ref="remoteAudio" autoplay style="display: none;"></audio>
+                    <audio x-ref="localAudio" muted style="display: none;"></audio>
                 </div>
             </div>
         </template>
@@ -1048,6 +1191,26 @@
                 </div>
                 <div class="invite-timer">
                     <div class="invite-timer-bar" :style="`width: ${(inviteNotification.timeLeft / 10) * 100}%`"></div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Уведомление о входящем звонке -->
+        <template x-if="incomingCall.show">
+            <div class="invite-notification">
+                <div style="font-weight: bold; margin-bottom: 8px;" x-text="'Звонок от ' + incomingCall.from"></div>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <button @click="acceptCall()"
+                        style="flex: 1; background: var(--discord-success); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
+                        Принять
+                    </button>
+                    <button @click="declineCall()"
+                        style="flex: 1; background: var(--discord-danger); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
+                        Отклонить
+                    </button>
+                </div>
+                <div class="invite-timer">
+                    <div class="invite-timer-bar" :style="`width: ${(incomingCall.timeLeft / 10) * 100}%`"></div>
                 </div>
             </div>
         </template>
@@ -1162,993 +1325,7 @@
         </template>
     </div>
 
-    <script>
-        function discordApp() {
-            return {
-                servers: [{ id: 1, name: "Suscord" }],
-                activeServer: 1,
-                chats: [],
-                activeChat: null,
-                chatMessages: {},
-                chatStates: {},
-                userCache: {},
-                currentUser: null,
-                onlineMembers: [],
-                newMessage: '',
-                ws: null,
-                isConnected: false,
-                loadingMessages: false,
-                MESSAGE_WINDOW_SIZE: 200,
-                selectedFiles: [],
-
-                isCallActive: false,
-                incomingCall: null,
-                isMuted: false,
-                isVideoOn: false,
-
-                notification: { show: false, message: '', icon: 'ℹ️' },
-                currentImageSrc: '',
-                showInviteModal: false,
-                nonMembers: [],
-                inviteStates: {},
-                inviteNotification: { show: false, code: '', timeLeft: 10 },
-                searchQuery: '',
-                searchTimeout: null,
-                activeTab: 'chats',
-                searchResults: [],
-                allChats: [],
-                showEditModal: false,
-                editChatName: '',
-                selectedAvatar: null,
-                avatarPreview: null,
-
-                init() {
-                    window.servers = this.servers;
-                    this.loadCurrentUser();
-                    this.loadChats().then(() => {
-                        const pathParts = window.location.pathname.split('/');
-                        if (pathParts[1] === 'chats' && pathParts[2]) {
-                            const chatId = parseInt(pathParts[2]);
-                            if (chatId) {
-                                this.activeChat = null;
-                                this.selectChat(chatId);
-                            }
-                        }
-                    });
-                    this.connectWebSocket();
-
-                    // Очищаем поиск при переключении вкладок
-                    this.$watch('activeTab', () => {
-                        this.searchQuery = '';
-                        this.searchResults = [];
-                    });
-
-                    window.addEventListener('popstate', () => {
-                        const pathParts = window.location.pathname.split('/');
-                        if (pathParts[1] === 'chats' && pathParts[2]) {
-                            const chatId = parseInt(pathParts[2]);
-                            if (chatId) {
-                                this.activeChat = null;
-                                this.selectChat(chatId);
-                            }
-                        } else {
-                            this.activeChat = null;
-                        }
-                    });
-                },
-
-                async loadChats() {
-                    try {
-                        const res = await fetch('/api/v1/chats');
-                        if (res.ok) {
-                            this.allChats = [...(await res.json())];
-                            this.chats = [...this.allChats];
-                            return true;
-                        }
-                    } catch (e) { console.error(e); }
-                    return false;
-                },
-
-                get messages() {
-                    return this.chatMessages[this.activeChat] || [];
-                },
-
-                async selectChat(chatId) {
-                    if (this.activeChat === chatId) return;
-
-                    this.activeChat = chatId;
-                    window.history.pushState({}, '', `/chats/${chatId}`);
-
-                    if (!this.chatMessages[chatId]) {
-                        this.chatMessages[chatId] = [];
-                        this.chatStates[chatId] = {
-                            oldestMessageId: null,
-                            hasMoreMessages: true,
-                            isInitialLoad: true
-                        };
-                        await this.loadLatestMessages();
-                    }
-
-                    await this.loadChatMembers();
-                    setTimeout(() => this.scrollToBottom(), 100);
-                },
-
-                async loadLatestMessages() {
-                    if (!this.activeChat) return;
-                    this.loadingMessages = true;
-                    try {
-                        const url = `/api/v1/chats/${this.activeChat}/messages?chat_id=${this.activeChat}&limit=50`;
-                        const res = await fetch(url);
-                        if (res.ok) {
-                            const msgs = await res.json();
-                            if (msgs.length > 0) {
-                                const processedMsgs = await this.processMessages(msgs.reverse());
-                                this.chatMessages[this.activeChat] = processedMsgs;
-                                this.chatStates[this.activeChat].oldestMessageId = processedMsgs[0].id;
-                                this.chatStates[this.activeChat].hasMoreMessages = msgs.length === 50;
-                                this.chatStates[this.activeChat].isInitialLoad = false;
-                            }
-                        }
-                    } catch (e) { console.error(e); }
-                    this.loadingMessages = false;
-                },
-
-                async loadOlderMessages() {
-                    const state = this.chatStates[this.activeChat];
-                    if (!this.activeChat || !state?.hasMoreMessages || this.loadingMessages) return;
-
-                    this.loadingMessages = true;
-                    const container = document.getElementById('messages-container');
-                    const oldScrollHeight = container.scrollHeight;
-
-                    try {
-                        let url = `/api/v1/chats/${this.activeChat}/messages?limit=50`;
-                        if (state.oldestMessageId) url += `&last_message_id=${state.oldestMessageId}`;
-
-                        const res = await fetch(url);
-                        if (res.ok) {
-                            const msgs = await res.json();
-                            if (msgs.length > 0) {
-                                const processedMsgs = await this.processMessages(msgs.reverse());
-                                state.oldestMessageId = processedMsgs[0].id;
-                                state.hasMoreMessages = msgs.length === 50;
-
-                                this.chatMessages[this.activeChat] = [...processedMsgs, ...this.chatMessages[this.activeChat]];
-                                this.trimMessages();
-
-                                setTimeout(() => {
-                                    const newScrollHeight = container.scrollHeight;
-                                    container.scrollTop = newScrollHeight - oldScrollHeight;
-                                }, 0);
-                            } else {
-                                state.hasMoreMessages = false;
-                            }
-                        }
-                    } catch (e) { console.error(e); }
-                    this.loadingMessages = false;
-                },
-
-                trimMessages() {
-                    const messages = this.chatMessages[this.activeChat];
-                    if (messages && messages.length > this.MESSAGE_WINDOW_SIZE) {
-                        this.chatMessages[this.activeChat] = messages.slice(-this.MESSAGE_WINDOW_SIZE);
-                        this.chatStates[this.activeChat].hasMoreMessages = true;
-                    }
-                },
-
-                onScroll(e) {
-                    if (e.target.scrollTop < 100) {
-                        this.loadOlderMessages();
-                    }
-                },
-
-                scrollToBottom() {
-                    const container = document.getElementById('messages-container');
-                    if (container) container.scrollTop = container.scrollHeight;
-                },
-
-                async sendMessage() {
-                    if ((!this.newMessage.trim() && this.selectedFiles.length === 0) || !this.activeChat) return;
-
-                    const content = this.newMessage;
-                    const files = [...this.selectedFiles];
-                    this.newMessage = '';
-                    this.selectedFiles = [];
-
-                    try {
-                        const formData = new FormData();
-
-                        // Определяем тип сообщения и контент
-                        if (files.length > 0) {
-                            formData.append('type', 'files');
-                            if (content.trim()) {
-                                formData.append('content', content);
-                            }
-                        } else {
-                            formData.append('type', 'message');
-                            formData.append('content', content);
-                        }
-
-                        for (const file of files) {
-                            formData.append('file', file);
-                        }
-
-                        const res = await fetch(`/api/v1/chats/${this.activeChat}/messages`, {
-                            method: 'POST',
-                            body: formData
-                        });
-
-                        if (!res.ok) {
-                            this.showNotification('Ошибка отправки сообщения', '❌');
-                            this.newMessage = content;
-                            this.selectedFiles = files;
-                            return;
-                        }
-
-                        this.moveChatToTop(this.activeChat);
-                        setTimeout(() => this.scrollToBottom(), 100);
-                    } catch (e) {
-                        console.error('Send message error:', e);
-                        this.showNotification('Ошибка отправки сообщения', '❌');
-                        this.newMessage = content;
-                        this.selectedFiles = files;
-                    }
-                },
-
-                handleFileSelect(event) {
-                    const files = Array.from(event.target.files);
-                    this.selectedFiles = [...this.selectedFiles, ...files];
-                    event.target.value = '';
-                },
-
-                removeFile(index) {
-                    this.selectedFiles.splice(index, 1);
-                },
-
-                isImageOrVideo(file) {
-                    return file.type.startsWith('image/') || file.type.startsWith('video/');
-                },
-
-                isGif(mimeType) {
-                    return mimeType === 'image/gif';
-                },
-
-                getFilePreview(file) {
-                    if (file.type.startsWith('image/')) {
-                        return URL.createObjectURL(file);
-                    }
-                    return '';
-                },
-
-                formatFileSize(bytes) {
-                    if (bytes === 0) return '0 Б';
-                    const k = 1024;
-                    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
-                    const i = Math.floor(Math.log(bytes) / Math.log(k));
-                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-                },
-
-                isMediaFile(mimeType) {
-                    return mimeType && (mimeType.startsWith('image/') || mimeType.startsWith('video/') || mimeType.startsWith('audio/'));
-                },
-
-                downloadFile(filePath) {
-                    const link = document.createElement('a');
-                    link.href = filePath;
-                    link.download = filePath.split('/').pop();
-                    link.click();
-                },
-
-                async deleteAttachment(attachmentId) {
-                    if (!confirm('Вы уверены, что хотите удалить этот файл?')) return;
-
-                    const { ok } = await this.apiCall(`/api/v1/attachments/${attachmentId}`, { method: 'DELETE' });
-                    if (ok) {
-                        const messages = this.chatMessages[this.activeChat];
-                        if (messages) {
-                            for (let i = messages.length - 1; i >= 0; i--) {
-                                const message = messages[i];
-                                if (message.attachments) {
-                                    message.attachments = message.attachments.filter(att => att.id !== attachmentId);
-                                    if (message.attachments.length === 0 && !message.content?.trim()) {
-                                        messages.splice(i, 1);
-                                    }
-                                }
-                            }
-                        }
-                        this.showNotification('Файл удалён', '✅');
-                    } else {
-                        this.showNotification('Ошибка удаления', '❌');
-                    }
-                },
-
-                getActiveChat() {
-                    return this.allChats.find(c => c.id === this.activeChat) || this.chats.find(c => c.id === this.activeChat);
-                },
-
-                getActiveChatName() {
-                    const chat = this.getActiveChat();
-                    return chat ? chat.name : '';
-                },
-
-                getActiveFriendName() {
-                    const chat = this.getActiveChat();
-                    return chat ? chat.name : 'Пользователь';
-                },
-
-                async createNewChat() {
-                    try {
-                        const name = prompt('Название группы:');
-                        if (!name) return;
-
-                        const res = await fetch('/api/v1/chats/group', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: name,
-                                avatar_path: ''
-                            })
-                        });
-
-                        if (res.ok) {
-                            const chat = await res.json();
-                            this.chats.unshift(chat);
-                            this.showNotification('Чат создан', '✅');
-                        } else {
-                            this.showNotification('Ошибка создания чата', '❌');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.showNotification('Ошибка создания чата', '❌');
-                    }
-                },
-
-                async inviteUserToChat() {
-                    const chat = this.getActiveChat();
-                    if (!chat || chat.type !== 'group') {
-                        this.showNotification('Можно приглашать только в групповые чаты', '❌');
-                        return;
-                    }
-
-                    await this.loadNonMembers();
-                    this.showInviteModal = true;
-                },
-
-                async loadNonMembers() {
-                    try {
-                        const res = await fetch(`/api/v1/chats/${this.activeChat}/non-members`);
-                        if (res.ok) {
-                            this.nonMembers = await res.json();
-                            this.inviteStates = {};
-                        }
-                    } catch (e) {
-                        console.error(e);
-                    }
-                },
-
-                async sendInvite(userId) {
-                    try {
-                        const res = await fetch(`/api/v1/chats/${this.activeChat}/invite`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_id: userId })
-                        });
-
-                        if (res.ok) {
-                            this.inviteStates[userId] = true;
-                        } else {
-                            this.showNotification('Ошибка отправки приглашения', '❌');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.showNotification('Ошибка отправки приглашения', '❌');
-                    }
-                },
-
-                async loadChatMembers() {
-                    if (!this.activeChat) return;
-
-                    try {
-                        const res = await fetch(`/api/v1/chats/${this.activeChat}/members`);
-                        if (res.ok) {
-                            this.onlineMembers = await res.json();
-                        }
-                    } catch (e) {
-                        console.error(e);
-                    }
-                },
-
-                showInviteNotification(code) {
-                    this.inviteNotification = { show: true, code: code, timeLeft: 10 };
-
-                    const timer = setInterval(() => {
-                        this.inviteNotification.timeLeft--;
-                        if (this.inviteNotification.timeLeft <= 0) {
-                            this.inviteNotification.show = false;
-                            clearInterval(timer);
-                        }
-                    }, 1000);
-                },
-
-                async acceptInvite() {
-                    try {
-                        const res = await fetch(`/api/v1/chats/invite/accept/${this.inviteNotification.code}`);
-                        if (res.ok) {
-                            this.inviteNotification.show = false;
-                            await this.loadChats();
-                            this.showNotification('Приглашение принято', '✅');
-                        } else {
-                            this.showNotification('Ошибка принятия приглашения', '❌');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.showNotification('Ошибка принятия приглашения', '❌');
-                    }
-                },
-
-                declineInvite() {
-                    this.inviteNotification.show = false;
-                },
-
-                async leaveChat() {
-                    if (!this.activeChat || !confirm('Вы уверены, что хотите покинуть этот чат?')) return;
-
-                    try {
-                        const res = await this.apiCall(`/api/v1/chats/${this.activeChat}/leave`);
-                        if (res.ok) {
-                            this.showNotification('Вы покинули чат', '✓');
-                            this.activeChat = null;
-                            await this.loadChats();
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.showNotification('Ошибка при выходе из чата', '⚠️');
-                    }
-                },
-
-                async deleteChat() {
-                    if (!this.activeChat || !confirm('Вы уверены, что хотите удалить этот чат?')) return;
-
-                    try {
-                        const res = await this.apiCall(`/api/v1/chats/${this.activeChat}`, { method: 'DELETE' });
-                        if (res.ok) {
-                            this.showNotification('Чат удалён', '✅');
-                            this.activeChat = null;
-                            await this.loadChats();
-                        } else {
-                            this.showNotification('Ошибка удаления чата', '❌');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.showNotification('Ошибка удаления чата', '❌');
-                    }
-                },
-
-                editGroupChat() {
-                    const chat = this.getActiveChat();
-                    if (!chat || chat.type !== 'group') return;
-
-                    this.editChatName = chat.name;
-                    this.selectedAvatar = null;
-                    this.avatarPreview = null;
-                    this.showEditModal = true;
-                },
-
-                cropTool() {
-                    return {
-                        cropArea: { x: 50, y: 50, width: 200, height: 200 },
-                        isDragging: false,
-                        startPos: { x: 0, y: 0 },
-
-                        initCrop() {
-                            const img = this.$refs.cropImage;
-                            if (!img) return;
-
-                            const size = Math.min(img.offsetWidth, img.offsetHeight) * 0.7;
-                            this.cropArea = {
-                                x: (img.offsetWidth - size) / 2,
-                                y: (img.offsetHeight - size) / 2,
-                                width: size,
-                                height: size
-                            };
-                        },
-
-                        startDrag(e) {
-                            this.isDragging = true;
-                            this.startPos = { x: e.clientX - this.cropArea.x, y: e.clientY - this.cropArea.y };
-                            document.addEventListener('mousemove', this.drag.bind(this));
-                            document.addEventListener('mouseup', this.stopDrag.bind(this));
-                        },
-
-                        drag(e) {
-                            if (!this.isDragging) return;
-                            const img = this.$refs.cropImage;
-                            const newX = Math.max(0, Math.min(e.clientX - this.startPos.x, img.offsetWidth - this.cropArea.width));
-                            const newY = Math.max(0, Math.min(e.clientY - this.startPos.y, img.offsetHeight - this.cropArea.height));
-                            this.cropArea.x = newX;
-                            this.cropArea.y = newY;
-                        },
-
-                        stopDrag() {
-                            this.isDragging = false;
-                            document.removeEventListener('mousemove', this.drag.bind(this));
-                            document.removeEventListener('mouseup', this.stopDrag.bind(this));
-                        }
-                    };
-                },
-
-                handleAvatarSelect(event) {
-                    const file = event.target.files[0];
-                    if (file) {
-                        this.selectedAvatar = file;
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            this.avatarPreview = e.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                },
-
-                async getCroppedImage() {
-                    if (!this.avatarPreview) return this.selectedAvatar;
-
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const img = new Image();
-
-                    return new Promise((resolve) => {
-                        img.onload = () => {
-                            const cropOverlay = document.querySelector('.crop-overlay');
-                            if (!cropOverlay) {
-                                resolve(this.selectedAvatar);
-                                return;
-                            }
-
-                            const cropImg = document.querySelector('.crop-image');
-                            const rect = cropOverlay.getBoundingClientRect();
-                            const imgRect = cropImg.getBoundingClientRect();
-
-                            const scaleX = img.naturalWidth / imgRect.width;
-                            const scaleY = img.naturalHeight / imgRect.height;
-
-                            const cropX = (rect.left - imgRect.left) * scaleX;
-                            const cropY = (rect.top - imgRect.top) * scaleY;
-                            const cropWidth = rect.width * scaleX;
-                            const cropHeight = rect.height * scaleY;
-
-                            canvas.width = cropWidth;
-                            canvas.height = cropHeight;
-
-                            ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-                            canvas.toBlob((blob) => {
-                                const croppedFile = new File([blob], this.selectedAvatar.name, { type: this.selectedAvatar.type });
-                                resolve(croppedFile);
-                            }, this.selectedAvatar.type);
-                        };
-                        img.src = this.avatarPreview;
-                    });
-                },
-
-                async saveGroupChat() {
-                    if (!this.activeChat) return;
-
-                    try {
-                        const formData = new FormData();
-
-                        if (this.editChatName.trim()) {
-                            formData.append('name', this.editChatName.trim());
-                        }
-
-                        if (this.selectedAvatar) {
-                            const croppedFile = await this.getCroppedImage();
-                            formData.append('file', croppedFile);
-                        }
-
-                        const res = await fetch(`/api/v1/chats/${this.activeChat}`, {
-                            method: 'PATCH',
-                            body: formData
-                        });
-
-                        if (res.ok) {
-                            const updatedChat = await res.json();
-
-                            // Обновляем чат в списке
-                            const chatIndex = this.chats.findIndex(c => c.id === this.activeChat);
-                            if (chatIndex !== -1) {
-                                this.chats[chatIndex] = { ...this.chats[chatIndex], ...updatedChat };
-                            }
-
-                            const allChatIndex = this.allChats.findIndex(c => c.id === this.activeChat);
-                            if (allChatIndex !== -1) {
-                                this.allChats[allChatIndex] = { ...this.allChats[allChatIndex], ...updatedChat };
-                            }
-
-                            // Сбрасываем переменные
-                            this.avatarPreview = null;
-                            this.selectedAvatar = null;
-                            this.showEditModal = false;
-                            this.showNotification('Чат обновлён', '✅');
-                        } else {
-                            this.showNotification('Ошибка обновления чата', '❌');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.showNotification('Ошибка обновления чата', '❌');
-                    }
-                },
-
-                getLastMessage(chatId) {
-                    // Заглушка, можно реализовать кэширование последних сообщений
-                    return '';
-                },
-
-                formatTime(ts) {
-                    if (!ts) return '';
-                    const date = new Date(ts);
-                    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                },
-
-                // WebSocket
-                connectWebSocket() {
-                    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    this.ws = new WebSocket(`${protocol}//${location.host}/ws?session=${this.getCookie('session')}`);
-
-                    this.ws.onopen = () => {
-                        this.isConnected = true;
-                        this.showNotification('Подключено', '✅');
-                    };
-
-                    this.ws.onclose = () => {
-                        this.isConnected = false;
-                        this.showNotification('Отключено от сервера', '🔴');
-                        setTimeout(() => this.connectWebSocket(), 3000);
-                    };
-
-                    this.ws.onmessage = (event) => {
-                        const msg = JSON.parse(event.data);
-                        this.handleWsMessage(msg);
-                    };
-                },
-
-                async handleWsMessage(msg) {
-                    switch (msg.type) {
-                        case 'message':
-                            let chatId = msg.data.chat_id;
-                            if (!this.chatMessages[chatId]) {
-                                this.chatMessages[chatId] = [];
-                                this.chatStates[chatId] = {
-                                    oldestMessageId: null,
-                                    hasMoreMessages: true,
-                                    isInitialLoad: true
-                                };
-                            }
-
-                            // Обрабатываем новую структуру сообщения
-                            const messageData = {
-                                id: msg.data.id,
-                                user_id: msg.data.user_id,
-                                content: msg.data.content,
-                                type: msg.data.type,
-                                timestamp: msg.data.created_at,
-                                attachments: msg.data.attachments || []
-                            };
-
-                            const processedMsg = await this.processMessage(messageData, true);
-                            this.chatMessages[chatId].push(processedMsg);
-                            this.trimMessages();
-
-                            this.moveChatToTop(chatId);
-                            if (chatId === this.activeChat) {
-                                setTimeout(() => this.scrollToBottom(), 100);
-                            }
-                            break;
-
-                        case 'message_update':
-                            this.handleMessageUpdate(msg.data);
-                            break;
-
-                        case 'message_delete':
-                            this.handleMessageDelete(msg.data);
-                            break;
-
-                        case 'joined_chat':
-                            {
-                                const chat = this.chats.find(c => c.id === msg.data.chat.id);
-                                if (!chat) {
-                                    this.chats.unshift({
-                                        id: msg.data.chat.id,
-                                        name: msg.data.chat.name,
-                                        avatar_path: msg.data.chat.avatar_path,
-                                        type: 'private'
-                                    });
-                                }
-                            }
-
-                            break;
-
-                        case 'new_user_in_chat':
-                            const member = this.onlineMembers.find(m => m.id === msg.data.user.id);
-
-                            if (msg.data.chat_id === this.activeChat && !member) {
-                                this.onlineMembers.push(msg.data.user);
-                                this.showNotification(`${msg.data.user.username} зашел в чат`, '👋');
-                            }
-
-                            break;
-
-                        case 'user_left':
-                            if (msg.data.chat_id === this.activeChat) {
-                                const member = this.onlineMembers.find(c => c.id === msg.data.user_id);
-                                this.showNotification(`${member.username} покинул чат`, '🚪');
-                                this.onlineMembers = this.onlineMembers.filter(m => m.id !== msg.data.user_id);
-                            }
-                            break;
-
-                        case 'delete_chat':
-                            {
-                                if (msg.data.chat_id === this.activeChat) {
-                                    this.onlineMembers = [];
-                                    this.activeChat = null;
-                                }
-
-                                const chat = this.chats.find(c => c.id === msg.data.chat_id);
-                                this.chats = this.chats.filter(c => c.id !== msg.data.chat_id);
-                                this.showNotification(`Чат ${chat?.name || '"нет имени"'} удален`, '🗑️');
-                            }
-                            break;
-
-                        case 'invite_to_chat':
-                            this.showInviteNotification(msg.data.code);
-                            break;
-
-                        case 'update_group_chat':
-                            {
-                                const updatedChat = msg.data.chat;
-                                const chatIndex = this.chats.findIndex(c => c.id === updatedChat.id);
-                                if (chatIndex !== -1) {
-                                    this.chats[chatIndex] = { ...this.chats[chatIndex], ...updatedChat };
-                                }
-                                const allChatIndex = this.allChats.findIndex(c => c.id === updatedChat.id);
-                                if (allChatIndex !== -1) {
-                                    this.allChats[allChatIndex] = { ...this.allChats[allChatIndex], ...updatedChat };
-                                }
-                                this.showNotification(`Чат ${chat?.name} был обновлен`, '🔄');
-                            }
-                            break;
-
-                        default:
-                            console.log('WS:', msg);
-                    }
-                },
-
-                handleMessageUpdate(data) {
-                    const messages = this.chatMessages[data.chat_id];
-                    if (messages) {
-                        const messageIndex = messages.findIndex(m => m.id === data.id);
-                        if (messageIndex !== -1) {
-                            messages[messageIndex] = {
-                                ...messages[messageIndex],
-                                content: data.content,
-                                attachments: data.attachments || []
-                            };
-                        }
-                    }
-                },
-
-                handleMessageDelete(data) {
-                    this.removeMessage(data.chat_id, data.ID);
-                },
-
-                // Утилиты
-                async apiCall(url, options = {}) {
-                    try {
-                        const res = await fetch(url, options);
-                        let data = null;
-                        if (res.ok) {
-                            try {
-                                data = await res.json();
-                            } catch {
-                                data = null;
-                            }
-                        }
-                        return { ok: res.ok, data };
-                    } catch (e) {
-                        console.error(e);
-                        return { ok: false, data: null };
-                    }
-                },
-
-                moveChatToTop(chatId) {
-                    const index = this.chats.findIndex(c => c.id === chatId);
-                    if (index > 0) {
-                        const chat = this.chats.splice(index, 1)[0];
-                        this.chats.unshift(chat);
-                    }
-                },
-
-                debouncedSearch() {
-                    clearTimeout(this.searchTimeout);
-                    this.searchTimeout = setTimeout(() => {
-                        if (this.activeTab === 'chats') {
-                            this.searchChats();
-                        } else {
-                            this.searchUsers();
-                        }
-                    }, 300);
-                },
-
-                async searchChats() {
-                    const query = this.searchQuery.trim();
-                    if (!query) {
-                        this.chats = [...this.allChats];
-                        return;
-                    }
-                    const { ok, data } = await this.apiCall(`/api/v1/chats?search=${encodeURIComponent(query)}`);
-                    if (ok && data) this.chats = data;
-                },
-
-                async searchUsers() {
-                    const query = this.searchQuery.trim();
-                    if (!query) {
-                        this.searchResults = [];
-                        return;
-                    }
-                    const { ok, data } = await this.apiCall(`/api/v1/users?search=${encodeURIComponent(query)}`);
-                    if (ok && data) this.searchResults = data;
-                },
-
-                async createPrivateChat(userId) {
-                    try {
-                        const res = await fetch('/api/v1/chats/private', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_id: userId })
-                        });
-
-                        if (res.ok) {
-                            const chat = await res.json();
-                            const existingChat = this.chats.find(c => c.id === chat.id);
-                            if (!existingChat) {
-                                this.chats.unshift(chat);
-                            }
-                            this.activeTab = 'chats';
-                            this.selectChat(chat.id);
-                            this.searchQuery = '';
-                            this.searchResults = [];
-                            this.showNotification('Приватный чат создан', '✅');
-                        } else {
-                            this.showNotification('Ошибка создания чата', '❌');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.showNotification('Ошибка создания чата', '❌');
-                    }
-                },
-
-                findMessage(chatId, messageId) {
-                    const messages = this.chatMessages[chatId];
-                    return messages ? messages.findIndex(m => m.id === messageId) : -1;
-                },
-
-                removeMessage(chatId, messageId) {
-                    const index = this.findMessage(chatId, messageId);
-                    if (index !== -1) this.chatMessages[chatId].splice(index, 1);
-                },
-
-                getCookie(name) {
-                    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-                    return match ? match[2] : '';
-                },
-
-                showNotification(message, icon = 'ℹ️') {
-                    this.notification = { show: true, message, icon };
-                    setTimeout(() => this.notification.show = false, 4000);
-                },
-
-                async processMessages(messages) {
-                    const processed = [];
-                    for (const msg of messages) {
-                        processed.push(await this.processMessage(msg));
-                    }
-                    return processed;
-                },
-
-                async processMessage(msg, isFromWs = false) {
-                    const user = await this.getUser(msg.user_id);
-
-                    return {
-                        id: msg.id,
-                        user_id: msg.user_id,
-                        content: msg.content,
-                        type: msg.type || 'message',
-                        timestamp: msg.timestamp || msg.created_at,
-                        username: user?.username || 'Неизвестный пользователь',
-                        avatar_path: user?.avatar_path || '/static/images/default-avatar.png',
-                        attachments: (msg.attachments || []).map(att => ({
-                            id: att.id,
-                            file_path: att.file_path,
-                            file_size: att.file_size,
-                            mime_type: att.mime_type
-                        }))
-                    };
-                },
-
-                async getUser(userId) {
-                    if (this.userCache[userId]) {
-                        return this.userCache[userId];
-                    }
-
-                    try {
-                        const res = await fetch(`/api/v1/users/${userId}`);
-                        if (res.ok) {
-                            const user = await res.json();
-                            this.userCache[userId] = user;
-                            return user;
-                        }
-                    } catch (e) {
-                        console.error('Error loading user:', e);
-                    }
-                    return null;
-                },
-
-                async loadCurrentUser() {
-                    try {
-                        const res = await fetch('/api/v1/users/me');
-                        if (res.ok) {
-                            this.currentUser = await res.json();
-                        }
-                    } catch (e) {
-                        console.error('Error loading current user:', e);
-                    }
-                },
-
-                async editMessage(message) {
-                    const newContent = prompt('Редактировать сообщение:', message.content);
-                    if (newContent && newContent !== message.content) {
-                        try {
-                            const res = await fetch(`/api/v1/messages/${message.id}`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ content: newContent })
-                            });
-                            if (res.ok) {
-                                message.content = newContent;
-                                this.showNotification('Сообщение отредактировано', '✅');
-                            }
-                        } catch (e) {
-                            console.error('Edit message error:', e);
-                            this.showNotification('Ошибка редактирования', '❌');
-                        }
-                    }
-                },
-
-                async deleteMessage(messageId) {
-                    if (!confirm('Удалить сообщение?')) return;
-
-                    const { ok } = await this.apiCall(`/api/v1/messages/${messageId}`, { method: 'DELETE' });
-                    if (ok) {
-                        this.removeMessage(this.activeChat, messageId);
-                        this.showNotification('Сообщение удалено', '✅');
-                    } else {
-                        this.showNotification('Ошибка удаления', '❌');
-                    }
-                },
-
-                showImagePopup(imageSrc) {
-                    this.currentImageSrc = imageSrc;
-                    document.getElementById('modalImage').src = imageSrc;
-                    new bootstrap.Modal(document.getElementById('imageModal')).show();
-                },
-
-                // Звонки (заглушка)
-                startCall() { this.isCallActive = true; },
-                endCall() { this.isCallActive = false; },
-                toggleMute() { this.isMuted = !this.isMuted; },
-                toggleVideo() { this.isVideoOn = !this.isVideoOn; }
-            };
-        }
-    </script>
+    <script src="/static/js/index.js"></script>
 
     <script>
         function downloadCurrentImage() {
