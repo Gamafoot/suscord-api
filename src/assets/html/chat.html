@@ -158,6 +158,16 @@
                         style="position: fixed; top: 60px; bottom: 80px; left: 300px; right: 0; background: rgba(88, 101, 242, 0.44); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; gap: 20px; border: 3px dashed rgb(255, 255, 255); border-radius: 8px; pointer-events: none;">
                     </div>
                 </div>
+                <!-- Пустой чат -->
+                <div x-show="messages.length === 0 && !loadingMessages" style="height: 100%;">
+                    <div
+                        style="color: rgb(114, 118, 125); text-align: center; pointer-events: none; display: flex; align-items: center; justify-content: center; flex-direction: column; height: 100%;">
+                        <div style="font-size: 64px;">💬</div>
+                        <div style="font-size: 1.5em; font-weight: 600; color: #b9bbbe;">Пока нет сообщений</div>
+                        <div style="font-size: 1.2em;">💪 Ты можешь стать первым</div>
+                    </div>
+                </div>
+
                 <!-- Messages -->
                 <template x-for="message in messages" :key="message.id">
                     <div class="message">
