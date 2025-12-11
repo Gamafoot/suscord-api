@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"suscord/internal/config"
 	"suscord/internal/domain/eventbus"
 	"suscord/internal/domain/service"
@@ -45,8 +44,8 @@ func NewHttpServer(
 		echo: echo.New(),
 	}
 
-	server.echo.Static(server.cfg.Static.RootUrl, server.cfg.Static.RootFolder)
-	server.echo.Static(server.cfg.Media.RootUrl, server.cfg.Media.RootFolder)
+	server.echo.Static(server.cfg.Static.Url, server.cfg.Static.Folder)
+	server.echo.Static(server.cfg.Media.Url, server.cfg.Media.Folder)
 
 	template := &TemplateRenderer{
 		templates: template.Must(template.ParseGlob("assets/html/*.html")),
@@ -69,7 +68,8 @@ func NewHttpServer(
 		"",
 		middleware.CORSWithConfig(middleware.CORSConfig{
 			AllowOrigins: server.cfg.CORS.Origins,
-			AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+			AllowMethods: server.cfg.CORS.AllowedMethods,
+			AllowHeaders: server.cfg.CORS.AllowedMethods,
 		}),
 		middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 			Timeout: server.cfg.Server.Timeout,

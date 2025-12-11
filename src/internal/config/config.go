@@ -31,19 +31,21 @@ type Config struct {
 	} `yaml:"hash"`
 
 	CORS struct {
-		Origins []string `yaml:"origins"`
+		Origins        []string `yaml:"origins"`
+		AllowedMethods []string `yaml:"allowed_methods"`
+		AllowedHeaders []string `yaml:"allowed_headers"`
 	} `yaml:"cors"`
 
 	Media struct {
-		AllowedExtentions []string `yaml:"allowed_types" env-required:"true"`
-		RootFolder        string   `yaml:"root_folder" env-required:"true"`
-		RootUrl           string   `yaml:"root_url" env-required:"true"`
-		MaxSize           string   `yaml:"max_size" env-default:"500M"`
+		AllowedMedia []string `yaml:"allowed_media" env-required:"true"`
+		Url          string   `yaml:"url" env-default:"/media/"`
+		Folder       string   `yaml:"folder" env-required:"true"`
+		MaxSize      string   `yaml:"max_size" env-default:"500M"`
 	} `yaml:"media"`
 
 	Static struct {
-		RootFolder string `yaml:"root_folder" env-required:"true"`
-		RootUrl    string `yaml:"root_url" env-required:"true"`
+		Url    string `yaml:"url" env-default:"/static/"`
+		Folder string `yaml:"folder" env-required:"true"`
 	} `yaml:"static"`
 }
 

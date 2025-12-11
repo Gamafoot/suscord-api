@@ -14,26 +14,27 @@ cors:
   origins:
     - "http://localhost:8000"
     - "http://127.0.0.1:8000"
-  methods:
+  allowed_methods:
     - "GET"
     - "POST"
     - "PUT"
     - "PATCH"
     - "DELETE"
-  headers:
+  allowed_headers:
     - "Origin"
     - "Content-Type"
     - "Authorization"
 
 media:
-  max_file_size: 734003200
-  allowed_types:
-    - ".mp4"
-    - ".png"
-    - ".jpg"
-  root_folder: assets/media
-  root_url: /media
+  media:
+  url: /media
+  folder: media
+  max_size: 500m
+  allowed_media:
+    - "video"
+    - "image"
+    - "audio"
 
 static:
-  root_folder: assets/static
-  root_url: /static
+  url: /static
+  folder: assets/static
