@@ -20,20 +20,6 @@
     </div>
 
     <div x-data="discordApp()" class="app-container">
-        <!-- Сайдбар серверов -->
-        <div class="servers-sidebar">
-            <div class="server-icon active">
-                <span>DM</span>
-            </div>
-            <div class="server-separator"></div>
-            <template x-for="server in servers" :key="server.id">
-                <div class="server-icon" :class="{ active: activeServer === server.id }"
-                    @click="activeServer = server.id">
-                    <span x-text="server.name.charAt(0)"></span>
-                </div>
-            </template>
-        </div>
-
         <!-- Сайдбар чатов -->
         <div class="channels-sidebar">
             <div class="sidebar-header">
@@ -52,10 +38,10 @@
                 <template x-for="chat in chats">
                     <div class="chat-item" :class="{ active: activeChat === chat.id }" @click="selectChat(chat.id)">
                         <div class="chat-avatar">
-                            <img x-show="chat.avatar_path" :src="chat.avatar_path"
+                            <img x-show="chat.avatar_url" :src="chat.avatar_url"
                                 style="width: 100%; border-radius: 50%;">
-                            <div x-show="!chat.avatar_path"
-                                style="width: 100%; height: 100%; background: #5865F2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-align: center; line-height: 2;"
+                            <div x-show="!chat.avatar_url"
+                                style="width: 100%; height: 100%; background: #5865F2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-align: center; line-height: 2.2;"
                                 x-text="chat.name ? chat.name.charAt(0).toUpperCase() : '#'"></div>
                         </div>
                         <div class="chat-info">
@@ -73,7 +59,7 @@
                 <template x-for="user in searchResults" :key="user.id">
                     <div class="chat-item" @click="createPrivateChat(user.id)">
                         <div class="chat-avatar">
-                            <img :src="user.avatar_path" style="width: 100%; border-radius: 50%;">
+                            <img :src="user.avatar_url" style="width: 100%; border-radius: 50%;">
                         </div>
                         <div class="chat-info">
                             <div class="chat-name" x-text="user.username"></div>
@@ -163,11 +149,25 @@
                 </div>
             </div>
 
-            <div class="chat-messages" id="messages-container" @scroll="onScroll">
+            <div class="chat-messages" id="messages-container" @scroll="onScroll" @drop.prevent="handleFileDrop($event)"
+                @dragover.prevent @dragenter.prevent="handleDragEnter()" @dragleave.prevent="handleDragLeave()">
+
+                <!-- Overlay для drag and drop -->
+                <div x-show="dragCounter > 0">
+                    <div
+                        style="position: fixed; top: 60px; bottom: 80px; left: 300px; right: 0; background: rgba(88, 101, 242, 0.44); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; gap: 20px; border: 3px dashed rgb(255, 255, 255); border-radius: 8px; pointer-events: none;">
+                    </div>
+                </div>
                 <!-- Messages -->
                 <template x-for="message in messages" :key="message.id">
                     <div class="message">
-                        <img class="message-avatar" :src="message.avatar_path"></img>
+                        <div class="message-avatar">
+                            <img x-show="message.avatar_url" :src="message.avatar_url"
+                                style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                            <div x-show="!message.avatar_url"
+                                style="width: 100%; height: 100%; background: #5865F2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.2em; text-align: center; line-height: 2.2;"
+                                x-text="message.username ? message.username.charAt(0).toUpperCase() : '?'"></div>
+                        </div>
                         <div class="message-content">
                             <div class="message-header">
                                 <div class="message-author" x-text="message.username"></div>
@@ -181,9 +181,9 @@
                                         <div
                                             x-show="attachment.mime_type && (attachment.mime_type.startsWith('image/') || isGif(attachment.mime_type))">
                                             <div class="attachment-container">
-                                                <img class="attachment-media" :src="attachment.file_path"
-                                                    :alt="attachment.file_path"
-                                                    @click="showImagePopup(attachment.file_path)"
+                                                <img class="attachment-media" :src="attachment.file_url"
+                                                    :alt="attachment.file_url"
+                                                    @click="showImagePopup(attachment.file_url)"
                                                     style="cursor: pointer;">
                                                 <div x-show="currentUser && message.user_id === currentUser.id"
                                                     class="attachment-delete" @click="deleteAttachment(attachment.id)"
@@ -193,14 +193,14 @@
                                         <div x-show="attachment.mime_type && attachment.mime_type.startsWith('video/')">
                                             <div class="attachment-container">
                                                 <video class="attachment-media" controls
-                                                    :src="attachment.file_path"></video>
+                                                    :src="attachment.file_url"></video>
                                                 <div x-show="currentUser && message.user_id === currentUser.id"
                                                     class="attachment-delete" @click="deleteAttachment(attachment.id)"
                                                     title="Удалить">🗑️</div>
                                             </div>
                                         </div>
                                         <div x-show="attachment.mime_type && attachment.mime_type.startsWith('audio/')">
-                                            <audio controls style="width: 100%;" :src="attachment.file_path"></audio>
+                                            <audio controls style="width: 100%;" :src="attachment.file_url"></audio>
                                         </div>
                                         <div
                                             x-show="!attachment.mime_type || (!attachment.mime_type.startsWith('image/') && !attachment.mime_type.startsWith('video/') && !attachment.mime_type.startsWith('audio/') && !isGif(attachment.mime_type))">
@@ -208,12 +208,12 @@
                                                 <div class="attachment-file-icon">📄</div>
                                                 <div class="attachment-file-info">
                                                     <div class="attachment-file-name"
-                                                        x-text="attachment.file_path.split('/').pop()"></div>
+                                                        x-text="attachment.file_url.split('/').pop()"></div>
                                                     <div class="attachment-file-size"
                                                         x-text="formatFileSize(attachment.file_size)"></div>
                                                 </div>
                                                 <button class="attachment-download"
-                                                    @click="downloadFile(attachment.file_path)">Скачать</button>
+                                                    @click="downloadFile(attachment.file_url)">Скачать</button>
                                             </div>
                                         </div>
                                     </div>
@@ -273,10 +273,10 @@
             <template x-for="member in onlineMembers" :key="member.id">
                 <div class="member-item">
                     <div class="member-avatar">
-                        <img x-show="member.avatar_path" :src="member.avatar_path"
+                        <img x-show="member.avatar_url" :src="member.avatar_url"
                             style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
-                        <div x-show="!member.avatar_path"
-                            style="width: 100%; height: 100%; background: #5865F2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-align: center; line-height: 2;"
+                        <div x-show="!member.avatar_url"
+                            style="width: 100%; height: 100%; background: #5865F2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-align: center; line-height: 2.2;"
                             x-text="(member.username || member.login).charAt(0).toUpperCase()"></div>
                     </div>
                     <div class="member-info">
@@ -483,7 +483,7 @@
                                     style="background: #40444b; border-radius: 8px;">
                                     <div class="d-flex align-items-center">
                                         <div class="member-avatar me-3">
-                                            <img :src="user.avatar_path" style="width: 100%; border-radius: 50%;">
+                                            <img :src="user.avatar_url" style="width: 100%; border-radius: 50%;">
                                         </div>
                                         <div>
                                             <div class="fw-bold" x-text="user.username"></div>
@@ -532,16 +532,18 @@
                                     x-ref="avatarInput" accept="image/*" @change="handleAvatarSelect">
                             </div>
                             <div x-show="avatarPreview" class="mb-3">
-                                <label class="form-label">Обрезка изображения</label>
+                                <label class="form-label">Предпросмотр</label>
                                 <div class="crop-container" x-data="cropTool()">
-                                    <img :src="avatarPreview" class="crop-image" x-ref="cropImage" @load="initCrop">
-                                    <div class="crop-overlay" x-ref="cropOverlay"
-                                        :style="`left: ${cropArea.x}px; top: ${cropArea.y}px; width: ${cropArea.width}px; height: ${cropArea.height}px`"
-                                        @mousedown="startDrag($event)">
-                                        <div class="crop-handle nw" @mousedown.stop="startResize($event, 'nw')"></div>
-                                        <div class="crop-handle ne" @mousedown.stop="startResize($event, 'ne')"></div>
-                                        <div class="crop-handle sw" @mousedown.stop="startResize($event, 'sw')"></div>
-                                        <div class="crop-handle se" @mousedown.stop="startResize($event, 'se')"></div>
+                                    <div style="position: relative; display: inline-block;">
+                                        <img :src="avatarPreview" class="crop-image" x-ref="cropImage" @load="initCrop">
+                                        <div x-show="showCrop" class="crop-overlay" x-ref="cropOverlay"
+                                            :style="`left: ${cropArea.x}px; top: ${cropArea.y}px; width: ${cropArea.width}px; height: ${cropArea.height}px`"
+                                            @mousedown="startDrag($event)">
+                                            <div class="crop-handle nw" @mousedown.stop="startResize($event, 'nw')"></div>
+                                            <div class="crop-handle ne" @mousedown.stop="startResize($event, 'ne')"></div>
+                                            <div class="crop-handle sw" @mousedown.stop="startResize($event, 'sw')"></div>
+                                            <div class="crop-handle se" @mousedown.stop="startResize($event, 'se')"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

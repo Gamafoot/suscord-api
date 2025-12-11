@@ -17,6 +17,7 @@ function discordApp() {
         MESSAGE_WINDOW_SIZE: 200,
         selectedFiles: [],
         reconnectTimer: null,
+        dragCounter: 0,
 
         // WebRTC
         peerConnection: null,
@@ -266,6 +267,21 @@ function discordApp() {
             event.target.value = '';
         },
 
+        handleFileDrop(event) {
+            event.preventDefault();
+            this.dragCounter = 0;
+            const files = Array.from(event.dataTransfer.files);
+            this.selectedFiles = [...this.selectedFiles, ...files];
+        },
+
+        handleDragEnter() {
+            this.dragCounter++;
+        },
+
+        handleDragLeave() {
+            this.dragCounter--;
+        },
+
         removeFile(index) {
             this.selectedFiles.splice(index, 1);
         },
@@ -351,7 +367,7 @@ function discordApp() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: name,
-                        avatar_path: ''
+                        avatar_url: ''
                     })
                 });
 
@@ -504,11 +520,21 @@ function discordApp() {
                 cropArea: { x: 50, y: 50, width: 200, height: 200 },
                 isDragging: false,
                 startPos: { x: 0, y: 0 },
+                dragHandler: null,
+                stopHandler: null,
+                showCrop: true,
 
                 initCrop() {
                     const img = this.$refs.cropImage;
                     if (!img) return;
 
+                    // Показываем cropping только если изображение больше 200x200
+                    if (img.offsetWidth <= 200 && img.offsetHeight <= 200) {
+                        this.showCrop = false;
+                        return;
+                    }
+
+                    this.showCrop = true;
                     const size = Math.min(img.offsetWidth, img.offsetHeight) * 0.7;
                     this.cropArea = {
                         x: (img.offsetWidth - size) / 2,
@@ -520,24 +546,32 @@ function discordApp() {
 
                 startDrag(e) {
                     this.isDragging = true;
-                    this.startPos = { x: e.clientX - this.cropArea.x, y: e.clientY - this.cropArea.y };
-                    document.addEventListener('mousemove', this.drag.bind(this));
-                    document.addEventListener('mouseup', this.stopDrag.bind(this));
+                    const img = this.$refs.cropImage;
+                    const rect = img.getBoundingClientRect();
+                    this.startPos = {
+                        x: e.clientX - rect.left - this.cropArea.x,
+                        y: e.clientY - rect.top - this.cropArea.y
+                    };
+                    this.dragHandler = this.drag.bind(this);
+                    this.stopHandler = this.stopDrag.bind(this);
+                    document.addEventListener('mousemove', this.dragHandler);
+                    document.addEventListener('mouseup', this.stopHandler);
                 },
 
                 drag(e) {
                     if (!this.isDragging) return;
                     const img = this.$refs.cropImage;
-                    const newX = Math.max(0, Math.min(e.clientX - this.startPos.x, img.offsetWidth - this.cropArea.width));
-                    const newY = Math.max(0, Math.min(e.clientY - this.startPos.y, img.offsetHeight - this.cropArea.height));
+                    const rect = img.getBoundingClientRect();
+                    const newX = Math.max(0, Math.min(e.clientX - rect.left - this.startPos.x, img.offsetWidth - this.cropArea.width));
+                    const newY = Math.max(0, Math.min(e.clientY - rect.top - this.startPos.y, img.offsetHeight - this.cropArea.height));
                     this.cropArea.x = newX;
                     this.cropArea.y = newY;
                 },
 
                 stopDrag() {
                     this.isDragging = false;
-                    document.removeEventListener('mousemove', this.drag.bind(this));
-                    document.removeEventListener('mouseup', this.stopDrag.bind(this));
+                    if (this.dragHandler) document.removeEventListener('mousemove', this.dragHandler);
+                    if (this.stopHandler) document.removeEventListener('mouseup', this.stopHandler);
                 }
             };
         },
@@ -564,12 +598,14 @@ function discordApp() {
             return new Promise((resolve) => {
                 img.onload = () => {
                     const cropOverlay = document.querySelector('.crop-overlay');
-                    if (!cropOverlay) {
+                    const cropImg = document.querySelector('.crop-image');
+
+                    // Если изображение маленькое или нет overlay, возвращаем оригинал
+                    if (!cropOverlay || !cropImg || (cropImg.offsetWidth <= 200 && cropImg.offsetHeight <= 200)) {
                         resolve(this.selectedAvatar);
                         return;
                     }
 
-                    const cropImg = document.querySelector('.crop-image');
                     const rect = cropOverlay.getBoundingClientRect();
                     const imgRect = cropImg.getBoundingClientRect();
 
@@ -663,27 +699,27 @@ function discordApp() {
             this.ws.onopen = () => {
                 this.isConnected = true;
                 this.showNotification('Подключено', '✅');
-                
+
                 if (this.reconnectTimer) {
                     clearTimeout(this.reconnectTimer);
                     this.reconnectTimer = null;
                 }
-                
+
                 this.hideLoadingScreen();
             };
 
             this.ws.onclose = () => {
                 this.isConnected = false;
                 this.showNotification('Отключено от сервера', '🔴');
-                
+
                 if (this.reconnectTimer) {
                     clearTimeout(this.reconnectTimer);
                 }
-                
+
                 this.reconnectTimer = setTimeout(() => {
                     this.showLoadingScreen();
                 }, 5000);
-                
+
                 setTimeout(() => this.connectWebSocket(), 3000);
             };
 
@@ -746,7 +782,7 @@ function discordApp() {
                             this.chats.unshift({
                                 id: msg.data.chat.id,
                                 name: msg.data.chat.name,
-                                avatar_path: msg.data.chat.avatar_path,
+                                avatar_url: msg.data.chat.avatar_url,
                                 type: 'private'
                             });
                         }
@@ -971,10 +1007,10 @@ function discordApp() {
                 type: msg.type || 'message',
                 timestamp: msg.timestamp || msg.created_at,
                 username: user?.username || 'Неизвестный пользователь',
-                avatar_path: user?.avatar_path || '/static/images/default-avatar.png',
+                avatar_url: user?.avatar_url,
                 attachments: (msg.attachments || []).map(att => ({
                     id: att.id,
-                    file_path: att.file_path,
+                    file_url: att.file_url,
                     file_size: att.file_size,
                     mime_type: att.mime_type
                 }))
@@ -1148,7 +1184,7 @@ function discordApp() {
 
         async acceptCall() {
             if (!this.incomingCall.offer) return;
-            
+
             if (this.incomingCallTimer) {
                 clearInterval(this.incomingCallTimer);
                 this.incomingCallTimer = null;
@@ -1249,7 +1285,7 @@ function discordApp() {
                 clearInterval(this.callOfferTimer);
                 this.callOfferTimer = null;
             }
-            
+
             if (this.incomingCallTimer) {
                 clearInterval(this.incomingCallTimer);
                 this.incomingCallTimer = null;
@@ -1363,12 +1399,12 @@ function discordApp() {
                         if (this.incomingCall.show) {
                             return;
                         }
-                        
+
                         if (this.callOfferTimer) {
                             clearInterval(this.callOfferTimer);
                             this.callOfferTimer = null;
                         }
-                        
+
                         const chat = this.chats.find(c => c.id === data.chatId) || this.allChats.find(c => c.id === data.chatId);
                         this.incomingCall = {
                             show: true,
@@ -1377,7 +1413,7 @@ function discordApp() {
                             offer: data.offer,
                             timeLeft: 10
                         };
-                        
+
                         // Таймер на ответ (10 секунд)
                         if (this.incomingCallTimer) {
                             clearInterval(this.incomingCallTimer);
