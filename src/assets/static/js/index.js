@@ -538,13 +538,23 @@ function discordApp() {
                     }
 
                     this.showCrop = true;
-                    const size = Math.min(img.offsetWidth, img.offsetHeight) * 0.7;
-                    this.cropArea = {
-                        x: (img.offsetWidth - size) / 2,
-                        y: (img.offsetHeight - size) / 2,
-                        width: size,
-                        height: size
+
+                    // Ждем пока изображение отрендерится
+                    const initCropArea = () => {
+                        const rect = img.getBoundingClientRect();
+                        if (rect.width === 0 || rect.height === 0) {
+                            requestAnimationFrame(initCropArea);
+                            return;
+                        }
+                        const size = Math.min(rect.width, rect.height, 600);
+                        this.cropArea = {
+                            x: (rect.width - size) / 2,
+                            y: (rect.height - size) / 2,
+                            width: size,
+                            height: size
+                        };
                     };
+                    requestAnimationFrame(initCropArea);
                 },
 
                 startDrag(e) {
@@ -614,7 +624,7 @@ function discordApp() {
                         newX = this.resizeStartArea.x + delta;
                     }
 
-                    newSize = Math.max(50, Math.min(newSize, img.offsetWidth, img.offsetHeight));
+                    newSize = Math.max(50, Math.min(newSize, img.offsetWidth, img.offsetHeight, 600));
                     newX = Math.max(0, Math.min(newX, img.offsetWidth - newSize));
                     newY = Math.max(0, Math.min(newY, img.offsetHeight - newSize));
 
@@ -679,10 +689,15 @@ function discordApp() {
                     const cropWidth = rect.width * scaleX;
                     const cropHeight = rect.height * scaleY;
 
-                    canvas.width = cropWidth;
-                    canvas.height = cropHeight;
+                    // Ограничиваем размер итогового изображения до 600x600
+                    const maxSize = 600;
+                    const finalWidth = Math.min(cropWidth, maxSize);
+                    const finalHeight = Math.min(cropHeight, maxSize);
 
-                    ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+                    canvas.width = finalWidth;
+                    canvas.height = finalHeight;
+
+                    ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, finalWidth, finalHeight);
 
                     canvas.toBlob((blob) => {
                         const croppedFile = new File([blob], this.selectedAvatar.name, { type: this.selectedAvatar.type });
@@ -715,11 +730,6 @@ function discordApp() {
 
                 if (res.ok) {
                     const updatedChat = await res.json();
-
-                    // Добавляем timestamp к avatar_url для сброса кэша
-                    if (updatedChat.avatar_url) {
-                        updatedChat.avatar_url = updatedChat.avatar_url + '?t=' + Date.now();
-                    }
 
                     // Обновляем чат в списке
                     const chatIndex = this.chats.findIndex(c => c.id === this.activeChat);
