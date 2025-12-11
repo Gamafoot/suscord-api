@@ -519,17 +519,20 @@ function discordApp() {
             return {
                 cropArea: { x: 50, y: 50, width: 200, height: 200 },
                 isDragging: false,
+                isResizing: false,
                 startPos: { x: 0, y: 0 },
+                resizeStartArea: null,
                 dragHandler: null,
                 stopHandler: null,
+                resizeHandler: null,
                 showCrop: true,
 
                 initCrop() {
                     const img = this.$refs.cropImage;
                     if (!img) return;
 
-                    // Показываем cropping только если изображение больше 200x200
-                    if (img.offsetWidth <= 200 && img.offsetHeight <= 200) {
+                    // Проверяем оригинальный размер изображения
+                    if (img.naturalWidth < 300 || img.naturalHeight < 300) {
                         this.showCrop = false;
                         return;
                     }
@@ -572,6 +575,56 @@ function discordApp() {
                     this.isDragging = false;
                     if (this.dragHandler) document.removeEventListener('mousemove', this.dragHandler);
                     if (this.stopHandler) document.removeEventListener('mouseup', this.stopHandler);
+                },
+
+                startResize(e, corner) {
+                    e.preventDefault();
+                    this.isResizing = true;
+                    const img = this.$refs.cropImage;
+                    const rect = img.getBoundingClientRect();
+                    this.startPos = { x: e.clientX, y: e.clientY };
+                    this.resizeStartArea = { ...this.cropArea };
+                    this.resizeCorner = corner;
+                    this.resizeHandler = this.resize.bind(this);
+                    this.stopHandler = this.stopResize.bind(this);
+                    document.addEventListener('mousemove', this.resizeHandler);
+                    document.addEventListener('mouseup', this.stopHandler);
+                },
+
+                resize(e) {
+                    if (!this.isResizing) return;
+                    const img = this.$refs.cropImage;
+                    const dx = e.clientX - this.startPos.x;
+                    const dy = e.clientY - this.startPos.y;
+                    const delta = Math.max(dx, dy);
+
+                    let newSize = this.resizeStartArea.width + delta;
+                    let newX = this.resizeStartArea.x;
+                    let newY = this.resizeStartArea.y;
+
+                    if (this.resizeCorner === 'nw') {
+                        newSize = this.resizeStartArea.width - delta;
+                        newX = this.resizeStartArea.x + delta;
+                        newY = this.resizeStartArea.y + delta;
+                    } else if (this.resizeCorner === 'ne') {
+                        newSize = this.resizeStartArea.width + delta;
+                        newY = this.resizeStartArea.y - delta;
+                    } else if (this.resizeCorner === 'sw') {
+                        newSize = this.resizeStartArea.width - delta;
+                        newX = this.resizeStartArea.x + delta;
+                    }
+
+                    newSize = Math.max(50, Math.min(newSize, img.offsetWidth, img.offsetHeight));
+                    newX = Math.max(0, Math.min(newX, img.offsetWidth - newSize));
+                    newY = Math.max(0, Math.min(newY, img.offsetHeight - newSize));
+
+                    this.cropArea = { x: newX, y: newY, width: newSize, height: newSize };
+                },
+
+                stopResize() {
+                    this.isResizing = false;
+                    if (this.resizeHandler) document.removeEventListener('mousemove', this.resizeHandler);
+                    if (this.stopHandler) document.removeEventListener('mouseup', this.stopHandler);
                 }
             };
         },
@@ -579,10 +632,19 @@ function discordApp() {
         handleAvatarSelect(event) {
             const file = event.target.files[0];
             if (file) {
-                this.selectedAvatar = file;
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    this.avatarPreview = e.target.result;
+                    const img = new Image();
+                    img.onload = () => {
+                        if (img.width < 300 || img.height < 300) {
+                            this.showNotification('Размер изображения должен быть минимум 300x300 пикселей', '❌');
+                            event.target.value = '';
+                            return;
+                        }
+                        this.selectedAvatar = file;
+                        this.avatarPreview = e.target.result;
+                    };
+                    img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             }
@@ -601,7 +663,7 @@ function discordApp() {
                     const cropImg = document.querySelector('.crop-image');
 
                     // Если изображение маленькое или нет overlay, возвращаем оригинал
-                    if (!cropOverlay || !cropImg || (cropImg.offsetWidth <= 200 && cropImg.offsetHeight <= 200)) {
+                    if (!cropOverlay || !cropImg || img.naturalWidth < 300 || img.naturalHeight < 300) {
                         resolve(this.selectedAvatar);
                         return;
                     }
@@ -653,6 +715,11 @@ function discordApp() {
 
                 if (res.ok) {
                     const updatedChat = await res.json();
+
+                    // Добавляем timestamp к avatar_url для сброса кэша
+                    if (updatedChat.avatar_url) {
+                        updatedChat.avatar_url = updatedChat.avatar_url + '?t=' + Date.now();
+                    }
 
                     // Обновляем чат в списке
                     const chatIndex = this.chats.findIndex(c => c.id === this.activeChat);
