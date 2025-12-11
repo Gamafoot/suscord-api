@@ -16,6 +16,7 @@ function discordApp() {
         loadingMessages: false,
         MESSAGE_WINDOW_SIZE: 200,
         selectedFiles: [],
+        reconnectTimer: null,
 
         // WebRTC
         peerConnection: null,
@@ -662,13 +663,27 @@ function discordApp() {
             this.ws.onopen = () => {
                 this.isConnected = true;
                 this.showNotification('Подключено', '✅');
+                
+                if (this.reconnectTimer) {
+                    clearTimeout(this.reconnectTimer);
+                    this.reconnectTimer = null;
+                }
+                
                 this.hideLoadingScreen();
             };
 
             this.ws.onclose = () => {
                 this.isConnected = false;
                 this.showNotification('Отключено от сервера', '🔴');
-                this.showLoadingScreen();
+                
+                if (this.reconnectTimer) {
+                    clearTimeout(this.reconnectTimer);
+                }
+                
+                this.reconnectTimer = setTimeout(() => {
+                    this.showLoadingScreen();
+                }, 5000);
+                
                 setTimeout(() => this.connectWebSocket(), 3000);
             };
 
