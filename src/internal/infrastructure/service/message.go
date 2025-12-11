@@ -2,11 +2,8 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"mime"
 	"mime/multipart"
-	"os"
 	"path/filepath"
 	"suscord/internal/config"
 	"suscord/internal/domain/entity"
@@ -15,9 +12,6 @@ import (
 	"suscord/internal/domain/eventbus/events"
 	"suscord/internal/domain/storage"
 	"suscord/internal/infrastructure/eventbus/mapper"
-	"time"
-
-	pkgErrors "github.com/pkg/errors"
 )
 
 type messageService struct {
@@ -138,7 +132,7 @@ func (s *messageService) createAttachments(
 	for i, file := range files {
 		mimetype := mime.TypeByExtension(filepath.Ext(file.Filename))
 
-		filepath, err := s.saveFile(file)
+		filepath, err := s.storage.File().UploadFile(file, "messages")
 		if err != nil {
 			return nil, err
 		}
@@ -163,42 +157,4 @@ func (s *messageService) createAttachments(
 	}
 
 	return attachments, nil
-}
-
-func (s *messageService) saveFile(file *multipart.FileHeader) (string, error) {
-	ext := filepath.Ext(file.Filename)
-	filename := fmt.Sprintf("%s_%d"+ext, file.Filename, time.Now().UnixNano())
-
-	var (
-		rootpath string
-		year     int
-		month    int
-	)
-
-	if year == 0 && month == 0 {
-		now := time.Now()
-		year = now.Year()
-		month = int(now.Month())
-	}
-
-	rootpath = fmt.Sprintf("%s/%d/%d", s.cfg.Media.Folder, year, month)
-	filepath := fmt.Sprintf("%s/%s", rootpath, filename)
-
-	os.MkdirAll(rootpath, os.ModePerm)
-
-	src, err := file.Open()
-	if err != nil {
-		return "", pkgErrors.WithStack(err)
-	}
-	defer src.Close()
-
-	dst, err := os.Create(filepath)
-	if err != nil {
-		return "", pkgErrors.WithStack(err)
-	}
-	defer dst.Close()
-
-	io.Copy(dst, src)
-
-	return filepath, nil
 }
