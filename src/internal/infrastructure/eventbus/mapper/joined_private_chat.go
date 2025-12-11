@@ -5,7 +5,7 @@ import (
 	"suscord/internal/domain/eventbus/dto"
 )
 
-func NewJoinedPrivateChat(chat *entity.Chat, userID uint, dontSend ...bool) *dto.JoinedPrivateChat {
+func NewJoinedPrivateChat(chat *entity.Chat, userID uint, mediaURL string, dontSend ...bool) *dto.JoinedPrivateChat {
 	_dontSend := false
 
 	if len(dontSend) > 0 {
@@ -13,7 +13,7 @@ func NewJoinedPrivateChat(chat *entity.Chat, userID uint, dontSend ...bool) *dto
 	}
 
 	return &dto.JoinedPrivateChat{
-		Chat:     NewChat(chat),
+		Chat:     NewChat(chat, mediaURL),
 		UserID:   userID,
 		DontSend: _dontSend,
 	}

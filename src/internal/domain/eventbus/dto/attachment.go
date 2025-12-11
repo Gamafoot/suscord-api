@@ -2,7 +2,7 @@ package dto
 
 type Attachment struct {
 	ID       uint   `json:"id"`
-	FilePath string `json:"file_path"`
+	FileUrl  string `json:"file_url"`
 	FileSize int64  `json:"file_size"`
 	MimeType string `json:"mime_type"`
 }

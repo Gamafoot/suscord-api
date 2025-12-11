@@ -52,7 +52,7 @@ func (h *handler) GetChatMessages(c echo.Context) error {
 	result := make([]*dto.MessageResponse, len(messages))
 
 	for i, message := range messages {
-		result[i] = dto.NewMessageReponse(message)
+		result[i] = dto.NewMessageReponse(message, h.cfg.Media.Url)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -86,6 +86,13 @@ func (h *handler) CreateMessage(c echo.Context) error {
 
 	files := form.File["file"]
 
+	for _, file := range files {
+		ok := utils.FilenameValidate(file.Filename, h.cfg.Media.AllowedMedia)
+		if !ok {
+			return utils.NewErrorResponse(c, http.StatusBadRequest, "invalid file")
+		}
+	}
+
 	data := &entity.CreateMessage{
 		Type:    reqInput.Type,
 		Content: reqInput.Content,
@@ -102,7 +109,7 @@ func (h *handler) CreateMessage(c echo.Context) error {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
-	messageResp := dto.NewMessageReponse(message)
+	messageResp := dto.NewMessageReponse(message, h.cfg.Media.Url)
 
 	return c.JSON(http.StatusOK, messageResp)
 }

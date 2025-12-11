@@ -34,7 +34,7 @@ func (h *handler) GetChatMembers(c echo.Context) error {
 
 	result := make([]*dto.User, len(users))
 	for i, user := range users {
-		result[i] = mapper.NewUser(user)
+		result[i] = mapper.NewUser(user, h.cfg.Media.Url)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -55,7 +55,7 @@ func (h *handler) GetNonMembers(c echo.Context) error {
 
 	result := make([]*dto.User, len(users))
 	for i, user := range users {
-		result[i] = mapper.NewUser(user)
+		result[i] = mapper.NewUser(user, h.cfg.Media.Url)
 	}
 
 	return c.JSON(http.StatusOK, result)

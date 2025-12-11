@@ -5,9 +5,9 @@ import (
 	"suscord/internal/domain/eventbus/dto"
 )
 
-func NewUpdateGroupChat(chat *entity.Chat, exceptUserID uint) *dto.UpdateGroupChat {
+func NewUpdateGroupChat(chat *entity.Chat, exceptUserID uint, mediaURL string) *dto.UpdateGroupChat {
 	return &dto.UpdateGroupChat{
-		Chat:         NewChat(chat),
+		Chat:         NewChat(chat, mediaURL),
 		ExceptUserID: exceptUserID,
 	}
 }

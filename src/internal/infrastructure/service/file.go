@@ -15,6 +15,6 @@ func NewFileService(storage storage.Storage) *fileService {
 	}
 }
 
-func (s *fileService) UploadFile(file *multipart.FileHeader) (string, error) {
-	return s.storage.File().UploadFile(file)
+func (s *fileService) UploadFile(file *multipart.FileHeader, uploadTo ...string) (string, error) {
+	return s.storage.File().UploadFile(file, uploadTo...)
 }

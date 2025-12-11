@@ -16,10 +16,10 @@ type MessageResponse struct {
 	Attachments []*Attachment `json:"attachments"`
 }
 
-func NewMessageReponse(message *entity.Message) *MessageResponse {
+func NewMessageReponse(message *entity.Message, mediaURL string) *MessageResponse {
 	attachments := make([]*Attachment, len(message.Attachments))
 	for i, attachment := range message.Attachments {
-		attachments[i] = NewAttachmentResponse(attachment)
+		attachments[i] = NewAttachmentResponse(attachment, mediaURL)
 	}
 
 	return &MessageResponse{

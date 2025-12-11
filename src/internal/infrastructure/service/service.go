@@ -25,8 +25,8 @@ func NewService(
 	return &_service{
 		user:       NewUserService(storage),
 		auth:       NewAuthService(cfg, storage),
-		chat:       NewChatService(storage, eventbus),
-		chatMember: NewChatMemberService(storage, eventbus),
+		chat:       NewChatService(cfg, storage, eventbus),
+		chatMember: NewChatMemberService(cfg, storage, eventbus),
 		message:    NewMessageService(cfg, storage, eventbus),
 		attachment: NewAttachmentService(cfg, storage, eventbus),
 		file:       NewFileService(storage),

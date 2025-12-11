@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"suscord/internal/config"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/domain/eventbus"
@@ -12,12 +13,14 @@ import (
 )
 
 type chatService struct {
+	cfg      *config.Config
 	storage  storage.Storage
 	eventbus eventbus.Bus
 }
 
-func NewChatService(storage storage.Storage, eventbus eventbus.Bus) *chatService {
+func NewChatService(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *chatService {
 	return &chatService{
+		cfg:      cfg,
 		storage:  storage,
 		eventbus: eventbus,
 	}
@@ -53,7 +56,7 @@ func (s *chatService) GetOrCreatePrivateChat(ctx context.Context, input *entity.
 	}
 
 	if createChat {
-		data := mapper.NewJoinedPrivateChat(chat, input.UserID, true)
+		data := mapper.NewJoinedPrivateChat(chat, input.UserID, s.cfg.Media.Url, true)
 		s.eventbus.Publish(data)
 
 		chatFriend, err := s.storage.Database().Chat().GetUserChat(ctx, chatID, input.FriendID)
@@ -61,7 +64,7 @@ func (s *chatService) GetOrCreatePrivateChat(ctx context.Context, input *entity.
 			return nil, err
 		}
 
-		data = mapper.NewJoinedPrivateChat(chatFriend, input.FriendID)
+		data = mapper.NewJoinedPrivateChat(chatFriend, input.FriendID, s.cfg.Media.Url)
 		s.eventbus.Publish(data)
 	}
 
@@ -107,7 +110,7 @@ func (s *chatService) CreateGroupChat(ctx context.Context, userID uint, data *en
 		return nil, err
 	}
 
-	event := mapper.NewJoinedGroupChat(chat, userID, true)
+	event := mapper.NewJoinedGroupChat(chat, userID, s.cfg.Media.Url, true)
 	s.eventbus.Publish(event)
 
 	return chat, nil
@@ -138,7 +141,7 @@ func (s *chatService) UpdateGroupChat(
 		return nil, err
 	}
 
-	s.eventbus.Publish(mapper.NewUpdateGroupChat(chat, userID))
+	s.eventbus.Publish(mapper.NewUpdateGroupChat(chat, userID, s.cfg.Media.Url))
 
 	return chat, nil
 }

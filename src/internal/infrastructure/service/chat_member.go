@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strconv"
+	"suscord/internal/config"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/domain/eventbus"
@@ -16,12 +17,14 @@ import (
 )
 
 type chatMemberService struct {
+	cfg      *config.Config
 	storage  storage.Storage
 	eventbus eventbus.Bus
 }
 
-func NewChatMemberService(storage storage.Storage, eventbus eventbus.Bus) *chatMemberService {
+func NewChatMemberService(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *chatMemberService {
 	return &chatMemberService{
+		cfg:      cfg,
 		storage:  storage,
 		eventbus: eventbus,
 	}
@@ -119,7 +122,7 @@ func (s *chatMemberService) AcceptInvite(ctx context.Context, userID uint, code 
 		return err
 	}
 
-	data := mapper.NewUserInChat(uint(chatID), user)
+	data := mapper.NewUserInChat(uint(chatID), user, s.cfg.Media.Url)
 	s.eventbus.Publish(data)
 
 	return nil

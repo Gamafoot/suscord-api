@@ -11,7 +11,7 @@ import (
 )
 
 type handler struct {
-	config     *config.Config
+	cfg        *config.Config
 	service    service.Service
 	storage    storage.Storage
 	eventbus   eventbus.Bus
@@ -26,7 +26,7 @@ func NewHandler(
 	middleware *middleware.Middleware,
 ) *handler {
 	return &handler{
-		config:     config,
+		cfg:        config,
 		service:    service,
 		storage:    storage,
 		eventbus:   eventbus,

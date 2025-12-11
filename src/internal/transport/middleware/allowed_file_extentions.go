@@ -26,7 +26,7 @@ func (mw *Middleware) AllowedFileExtentions() echo.MiddlewareFunc {
 					fileExt := filepath.Ext(file.Filename)
 					ok := false
 
-					for _, allowedExt := range mw.config.Media.AllowedExtentions {
+					for _, allowedExt := range mw.config.Media.AllowedMedia {
 						if fileExt == allowedExt {
 							ok = true
 							break

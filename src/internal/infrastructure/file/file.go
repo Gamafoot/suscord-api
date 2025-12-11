@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 	"suscord/internal/config"
 	"time"
 
@@ -22,24 +23,17 @@ func NewStorage(cfg *config.Config) *fileStorage {
 	}
 }
 
-func (s *fileStorage) UploadFile(file *multipart.FileHeader) (string, error) {
-	ext := filepath.Ext(file.Filename)
-	filename := fmt.Sprintf("%s_%d"+ext, file.Filename, time.Now().UnixNano())
+func (s *fileStorage) UploadFile(file *multipart.FileHeader, uploadTo ...string) (string, error) {
+	var uploadPath string
 
-	var (
-		rootpath string
-		year     int
-		month    int
-	)
-
-	if year == 0 && month == 0 {
-		now := time.Now()
-		year = now.Year()
-		month = int(now.Month())
+	if len(uploadTo) > 0 {
+		uploadPath = uploadTo[0]
 	}
 
-	rootpath = fmt.Sprintf("%s/%d/%d", s.cfg.Media.RootFolder, year, month)
-	filepath := fmt.Sprintf("%s/%s", rootpath, filename)
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+
+	rootpath := filepath.Join(s.cfg.Media.Folder, uploadPath)
+	filePath := filepath.Join(rootpath, filename)
 
 	os.MkdirAll(rootpath, os.ModePerm)
 
@@ -49,7 +43,7 @@ func (s *fileStorage) UploadFile(file *multipart.FileHeader) (string, error) {
 	}
 	defer src.Close()
 
-	dst, err := os.Create(filepath)
+	dst, err := os.Create(filePath)
 	if err != nil {
 		return "", pkgErrors.WithStack(err)
 	}
@@ -57,5 +51,7 @@ func (s *fileStorage) UploadFile(file *multipart.FileHeader) (string, error) {
 
 	io.Copy(dst, src)
 
-	return filepath, nil
+	filePath, _ = strings.CutPrefix(filePath, s.cfg.Media.Folder)
+
+	return filePath, nil
 }

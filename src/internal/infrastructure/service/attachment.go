@@ -44,7 +44,7 @@ func (s *attachmentService) Delete(ctx context.Context, userID, attachmentID uin
 		return err
 	}
 
-	data := mapper.NewMessage(events.EventMessageUpdate, message)
+	data := mapper.NewMessage(events.EventMessageUpdate, message, s.cfg.Media.Url)
 	s.eventbus.Publish(data)
 
 	return nil

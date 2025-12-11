@@ -32,9 +32,9 @@ func (h *handler) GetUserInfo(c echo.Context) error {
 	}
 
 	userDTO := dto.User{
-		ID:         user.ID,
-		Username:   user.Username,
-		AvatarPath: user.AvatarPath,
+		ID:        user.ID,
+		Username:  user.Username,
+		AvatarUrl: user.AvatarPath,
 	}
 
 	return c.JSON(http.StatusOK, userDTO)
@@ -54,7 +54,7 @@ func (h *handler) AboutMe(c echo.Context) error {
 	userDTO := dto.Me{
 		ID:         user.ID,
 		Username:   user.Username,
-		AvatarPath: user.AvatarPath,
+		AvatarUrl:  user.AvatarPath,
 		FriendCode: user.FriendCode,
 	}
 
@@ -77,7 +77,7 @@ func (h *handler) SearchUsers(c echo.Context) error {
 	result := make([]*dto.User, len(users))
 
 	for i, user := range users {
-		result[i] = mapper.NewUser(user)
+		result[i] = mapper.NewUser(user, h.cfg.Media.Url)
 	}
 
 	return c.JSON(http.StatusOK, result)

@@ -71,7 +71,7 @@ func (s *messageService) Create(ctx context.Context, userID, chatID uint, data *
 		message.Attachments = attachments
 	}
 
-	go s.eventbus.Publish(mapper.NewMessage(events.EventMessageCreate, message))
+	go s.eventbus.Publish(mapper.NewMessage(events.EventMessageCreate, message, s.cfg.Media.Url))
 
 	return message, nil
 }
@@ -96,7 +96,7 @@ func (s *messageService) Update(ctx context.Context, userID, messageID uint, dat
 		return nil, err
 	}
 
-	eventData := mapper.NewMessage(events.EventMessageUpdate, message)
+	eventData := mapper.NewMessage(events.EventMessageUpdate, message, s.cfg.Media.Url)
 	s.eventbus.Publish(eventData)
 
 	return message, nil
@@ -181,7 +181,7 @@ func (s *messageService) saveFile(file *multipart.FileHeader) (string, error) {
 		month = int(now.Month())
 	}
 
-	rootpath = fmt.Sprintf("%s/%d/%d", s.cfg.Media.RootFolder, year, month)
+	rootpath = fmt.Sprintf("%s/%d/%d", s.cfg.Media.Folder, year, month)
 	filepath := fmt.Sprintf("%s/%s", rootpath, filename)
 
 	os.MkdirAll(rootpath, os.ModePerm)

@@ -5,9 +5,9 @@ import (
 	"suscord/internal/domain/eventbus/dto"
 )
 
-func NewUserInChat(chatID uint, user *entity.User) *dto.NewUserInChat {
+func NewUserInChat(chatID uint, user *entity.User, mediaURL string) *dto.NewUserInChat {
 	return &dto.NewUserInChat{
 		ChatID: chatID,
-		User:   NewUser(user),
+		User:   NewUser(user, mediaURL),
 	}
 }

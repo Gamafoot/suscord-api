@@ -1,22 +1,32 @@
 package utils
 
 import (
+	"mime"
 	"path/filepath"
 	"strings"
-	"suscord/internal/config"
 )
 
-func FileExtensionValidate(filename string) bool {
-	cfg := config.GetConfig()
-
+func FilenameValidate(filename string, allowedMedia []string) bool {
 	ok := false
-	ext := strings.ToLower(filepath.Ext(filename))
+	ext := filepath.Ext(strings.ToLower(filename))
+	mimetype := mime.TypeByExtension(ext)
 
-	for _, allowExt := range cfg.Media.AllowedExtentions {
-		if ext == allowExt {
+	for _, allowed := range allowedMedia {
+		if strings.HasPrefix(mimetype, allowed) {
 			ok = true
 		}
 	}
 
 	return ok
+}
+
+func IsImage(filename string) bool {
+	ext := filepath.Ext(strings.ToLower(filename))
+	mimetype := mime.TypeByExtension(ext)
+
+	if strings.HasPrefix(mimetype, "image") {
+		return true
+	}
+
+	return false
 }

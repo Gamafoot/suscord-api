@@ -22,7 +22,7 @@ func (h *handler) InitChatRoutes(route *echo.Group) {
 }
 
 func (h *handler) GetUserChats(c echo.Context) error {
-	ctx, canсel := context.WithTimeout(c.Request().Context(), h.config.Server.Timeout)
+	ctx, canсel := context.WithTimeout(c.Request().Context(), h.cfg.Server.Timeout)
 	defer canсel()
 
 	userID := c.Get("user_id").(uint)
@@ -37,7 +37,7 @@ func (h *handler) GetUserChats(c echo.Context) error {
 	result := make([]*dto.Chat, len(chats))
 
 	for i, chat := range chats {
-		result[i] = mapper.NewChat(chat)
+		result[i] = mapper.NewChat(chat, h.cfg.Media.Url)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -67,7 +67,7 @@ func (h *handler) GetOrCreatePrivateChat(c echo.Context) error {
 		return err
 	}
 
-	result := mapper.NewChat(chat)
+	result := mapper.NewChat(chat, h.cfg.Media.Url)
 
 	return c.JSON(http.StatusOK, result)
 }
@@ -85,10 +85,7 @@ func (h *handler) CreateGroupChat(c echo.Context) error {
 
 	userID := c.Get("user_id").(uint)
 
-	data := &entity.CreateGroupChat{
-		Name:       reqInput.Name,
-		AvatarPath: reqInput.AvatarPath,
-	}
+	data := &entity.CreateGroupChat{Name: reqInput.Name}
 
 	chat, err := h.service.Chat().CreateGroupChat(c.Request().Context(), userID, data)
 	if err != nil {
@@ -120,12 +117,22 @@ func (h *handler) UpdateGroupChat(c echo.Context) error {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
+	ok := utils.FilenameValidate(file.Filename, h.cfg.Media.AllowedMedia)
+	if !ok {
+		return utils.NewErrorResponse(c, http.StatusBadRequest, "invalid file")
+	}
+
+	ok = utils.IsImage(file.Filename)
+	if !ok {
+		return utils.NewErrorResponse(c, http.StatusBadRequest, "file is not image")
+	}
+
 	userID := c.Get("user_id").(uint)
 
 	var avatarPath *string
 
 	if file != nil {
-		filepath, err := h.service.File().UploadFile(file)
+		filepath, err := h.service.File().UploadFile(file, "chats/avatars")
 		if err != nil {
 			return err
 		}

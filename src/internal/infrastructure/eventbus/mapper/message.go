@@ -5,15 +5,10 @@ import (
 	"suscord/internal/domain/eventbus/dto"
 )
 
-func NewMessage(event string, message *entity.Message) *dto.Message {
+func NewMessage(event string, message *entity.Message, mediaURL string) *dto.Message {
 	attachments := make([]*dto.Attachment, len(message.Attachments))
 	for i, attachment := range message.Attachments {
-		attachments[i] = &dto.Attachment{
-			ID:       attachment.ID,
-			FilePath: attachment.FilePath,
-			FileSize: attachment.FileSize,
-			MimeType: attachment.MimeType,
-		}
+		attachments[i] = NewAttachment(attachment, mediaURL)
 	}
 
 	return &dto.Message{
