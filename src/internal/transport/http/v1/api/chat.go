@@ -154,7 +154,9 @@ func (h *handler) UpdateGroupChat(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, chat)
+	result := mapper.NewChat(chat, h.cfg.Media.Url)
+
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *handler) DeletePrivateChat(c echo.Context) error {
