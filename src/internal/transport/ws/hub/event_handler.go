@@ -22,7 +22,7 @@ func (hub *Hub) RegisterEventSubscribers(bus eventbus.Bus) {
 
 func (hub *Hub) onMessageCreate(event eventbus.Event) {
 	data := event.(*eventDTO.Message)
-	hub.broadcastToRoom(data.ChatID, &dto.ResponseMessage{
+	hub.broadcastToChatRoom(data.ChatID, &dto.ResponseMessage{
 		Type:   "message",
 		ChatID: data.ChatID,
 		Data:   data,
@@ -31,7 +31,7 @@ func (hub *Hub) onMessageCreate(event eventbus.Event) {
 
 func (hub *Hub) onMessageUpdate(event eventbus.Event) {
 	data := event.(*eventDTO.Message)
-	hub.broadcastToRoomExcept(data.ChatID, data.UserID, &dto.ResponseMessage{
+	hub.broadcastToChatRoomExcept(data.ChatID, data.UserID, &dto.ResponseMessage{
 		Type:   "message_update",
 		ChatID: data.ChatID,
 		Data:   data,
@@ -40,7 +40,7 @@ func (hub *Hub) onMessageUpdate(event eventbus.Event) {
 
 func (hub *Hub) onMessageDelete(event eventbus.Event) {
 	data := event.(*eventDTO.MessageDelete)
-	hub.broadcastToRoomExcept(data.ChatID, data.ExceptUserID, &dto.ResponseMessage{
+	hub.broadcastToChatRoomExcept(data.ChatID, data.ExceptUserID, &dto.ResponseMessage{
 		Type:   "message_delete",
 		ChatID: data.ChatID,
 		Data:   data,
@@ -62,8 +62,8 @@ func (hub *Hub) onInviteToRoom(event eventbus.Event) {
 func (hub *Hub) onJoinedGroupChat(event eventbus.Event) {
 	data := event.(*eventDTO.JoinedGroupChat)
 	if client, exists := hub.clients[data.UserID]; exists {
-		hub.joinRoom(data.Chat.ID, client)
-		hub.broadcastToRoomExcept(data.Chat.ID, data.UserID, &dto.ResponseMessage{
+		hub.joinChatRoom(data.Chat.ID, client)
+		hub.broadcastToChatRoomExcept(data.Chat.ID, data.UserID, &dto.ResponseMessage{
 			Type:   "joined_chat",
 			ChatID: data.Chat.ID,
 			Data:   data,
@@ -74,7 +74,7 @@ func (hub *Hub) onJoinedGroupChat(event eventbus.Event) {
 func (hub *Hub) onJoinedPrivateChat(event eventbus.Event) {
 	data := event.(*eventDTO.JoinedPrivateChat)
 	if client, exists := hub.clients[data.UserID]; exists {
-		hub.joinRoom(data.Chat.ID, client)
+		hub.joinChatRoom(data.Chat.ID, client)
 		if !data.DontSend {
 			client.SendMessage(&dto.ResponseMessage{
 				Type: "joined_chat",
@@ -86,7 +86,7 @@ func (hub *Hub) onJoinedPrivateChat(event eventbus.Event) {
 
 func (hub *Hub) onUpdateGroupChat(event eventbus.Event) {
 	data := event.(*eventDTO.UpdateGroupChat)
-	hub.broadcastToRoomExcept(data.Chat.ID, data.ExceptUserID, &dto.ResponseMessage{
+	hub.broadcastToChatRoomExcept(data.Chat.ID, data.ExceptUserID, &dto.ResponseMessage{
 		Type: "update_group_chat",
 		Data: data,
 	})
@@ -95,8 +95,8 @@ func (hub *Hub) onUpdateGroupChat(event eventbus.Event) {
 func (hub *Hub) onNewUserInChat(event eventbus.Event) {
 	data := event.(*eventDTO.NewUserInChat)
 	if client, exists := hub.clients[data.User.ID]; exists {
-		hub.joinRoom(data.ChatID, client)
-		hub.broadcastToRoomExcept(data.ChatID, data.User.ID, &dto.ResponseMessage{
+		hub.joinChatRoom(data.ChatID, client)
+		hub.broadcastToChatRoomExcept(data.ChatID, data.User.ID, &dto.ResponseMessage{
 			Type:   "new_user_in_chat",
 			ChatID: data.ChatID,
 			Data:   data,
@@ -106,8 +106,8 @@ func (hub *Hub) onNewUserInChat(event eventbus.Event) {
 
 func (hub *Hub) onLeftChat(event eventbus.Event) {
 	data := event.(*eventDTO.LeftChat)
-	hub.leaveRoom(data.ChatID, data.UserID)
-	hub.broadcastToRoomExcept(data.ChatID, data.UserID, &dto.ResponseMessage{
+	hub.leaveChatRoom(data.ChatID, data.UserID)
+	hub.broadcastToChatRoomExcept(data.ChatID, data.UserID, &dto.ResponseMessage{
 		Type:   "user_left",
 		ChatID: data.ChatID,
 		Data:   data,
@@ -116,9 +116,9 @@ func (hub *Hub) onLeftChat(event eventbus.Event) {
 
 func (hub *Hub) onDeleteChat(event eventbus.Event) {
 	data := event.(*eventDTO.DeleteChat)
-	hub.broadcastToRoomExcept(data.ChatID, data.ExceptUserID, &dto.ResponseMessage{
+	hub.broadcastToChatRoomExcept(data.ChatID, data.ExceptUserID, &dto.ResponseMessage{
 		Type: "delete_chat",
 		Data: data,
 	})
-	hub.deleteRoom(data.ChatID)
+	hub.deleteChatRoom(data.ChatID)
 }

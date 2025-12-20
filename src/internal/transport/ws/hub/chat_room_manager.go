@@ -8,7 +8,7 @@ import (
 )
 
 // Room management - управление комнатами и клиентами
-func (hub *Hub) joinRoom(chatID uint, client *Client) error {
+func (hub *Hub) joinChatRoom(chatID uint, client *Client) error {
 	if client == nil {
 		return nil
 	}
@@ -33,25 +33,25 @@ func (hub *Hub) joinRoom(chatID uint, client *Client) error {
 	}
 
 	// Создаем комнату если не существует
-	if _, exists := hub.rooms[chatID]; !exists {
-		hub.rooms[chatID] = make(map[uint]bool)
+	if _, exists := hub.chatRooms[chatID]; !exists {
+		hub.chatRooms[chatID] = make(map[uint]bool)
 	}
 
 	// Добавляем клиента в комнату
-	hub.rooms[chatID][client.ID] = true
+	hub.chatRooms[chatID][client.ID] = true
 	client.Rooms[chatID] = true
 
 	return nil
 }
 
-func (hub *Hub) leaveRoom(roomID, clientID uint) {
+func (hub *Hub) leaveChatRoom(roomID, clientID uint) {
 	hub.mutex.Lock()
 
 	// Удаляем клиента из комнаты
-	if room, exists := hub.rooms[roomID]; exists {
+	if room, exists := hub.chatRooms[roomID]; exists {
 		delete(room, clientID)
 		if len(room) == 0 {
-			delete(hub.rooms, roomID)
+			delete(hub.chatRooms, roomID)
 		}
 	}
 
@@ -63,24 +63,24 @@ func (hub *Hub) leaveRoom(roomID, clientID uint) {
 	hub.mutex.Unlock()
 
 	// Уведомляем других участников
-	hub.broadcastToRoomExcept(roomID, clientID, &dto.ResponseMessage{
+	hub.broadcastToChatRoomExcept(roomID, clientID, &dto.ResponseMessage{
 		Type: "user_left",
 		Data: map[string]interface{}{"user_id": clientID},
 	})
 }
 
-func (hub *Hub) deleteRoom(roomID uint) {
+func (hub *Hub) deleteChatRoom(roomID uint) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 
-	hub.rooms[roomID] = make(map[uint]bool)
+	hub.chatRooms[roomID] = make(map[uint]bool)
 
 	for clientID := range hub.clients {
 		delete(hub.clients[clientID].Rooms, roomID)
 	}
 }
 
-func (hub *Hub) joinToUserRooms(client *Client, chats []*entity.Chat) error {
+func (hub *Hub) joinToUserChatRooms(client *Client, chats []*entity.Chat) error {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 
@@ -98,24 +98,23 @@ func (hub *Hub) joinToUserRooms(client *Client, chats []*entity.Chat) error {
 		}
 
 		// Создаем комнату если не существует
-		if _, exists := hub.rooms[chat.ID]; !exists {
-			hub.rooms[chat.ID] = make(map[uint]bool)
+		if _, exists := hub.chatRooms[chat.ID]; !exists {
+			hub.chatRooms[chat.ID] = make(map[uint]bool)
 		}
 
 		// Добавляем клиента в комнату
-		hub.rooms[chat.ID][client.ID] = true
+		hub.chatRooms[chat.ID][client.ID] = true
 		client.Rooms[chat.ID] = true
 	}
 
 	return nil
 }
 
-// Broadcasting methods
-func (hub *Hub) broadcastToRoom(chatID uint, message interface{}) {
+func (hub *Hub) broadcastToChatRoom(roomID uint, message interface{}) {
 	hub.mutex.RLock()
 	defer hub.mutex.RUnlock()
 
-	if room, exists := hub.rooms[chatID]; exists {
+	if room, exists := hub.chatRooms[roomID]; exists {
 		for userID := range room {
 			if client, exists := hub.clients[userID]; exists {
 				client.SendMessage(message)
@@ -124,11 +123,39 @@ func (hub *Hub) broadcastToRoom(chatID uint, message interface{}) {
 	}
 }
 
-func (hub *Hub) broadcastToRoomExcept(chatID, exceptUserID uint, message *dto.ResponseMessage) {
+func (hub *Hub) broadcastToChatRoomExcept(roomID, exceptUserID uint, message any) {
 	hub.mutex.RLock()
 	defer hub.mutex.RUnlock()
 
-	if room, exists := hub.rooms[chatID]; exists {
+	if room, exists := hub.chatRooms[roomID]; exists {
+		for userID := range room {
+			if userID != exceptUserID {
+				if client, exists := hub.clients[userID]; exists {
+					client.SendMessage(message)
+				}
+			}
+		}
+	}
+}
+
+func (hub *Hub) broadcastToSFURoom(roomID uint, message any) {
+	hub.mutex.RLock()
+	defer hub.mutex.RUnlock()
+
+	if room, exists := hub.sfuRooms[roomID]; exists {
+		for userID := range room {
+			if client, exists := hub.clients[userID]; exists {
+				client.SendMessage(message)
+			}
+		}
+	}
+}
+
+func (hub *Hub) broadcastToSFURoomExcept(roomID, exceptUserID uint, message any) {
+	hub.mutex.RLock()
+	defer hub.mutex.RUnlock()
+
+	if room, exists := hub.sfuRooms[roomID]; exists {
 		for userID := range room {
 			if userID != exceptUserID {
 				if client, exists := hub.clients[userID]; exists {

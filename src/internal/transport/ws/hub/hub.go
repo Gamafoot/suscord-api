@@ -8,6 +8,7 @@ import (
 	"suscord/internal/domain/eventbus"
 	"suscord/internal/domain/storage"
 	"suscord/internal/transport/ws/hub/dto"
+	"suscord/internal/transport/ws/hub/model"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -17,11 +18,13 @@ import (
 
 type Clients map[uint]*Client
 
-type Rooms map[uint]map[uint]bool
+type ChatRooms map[uint]map[uint]bool
+type SFURooms map[uint]map[uint]bool
 
 type Hub struct {
 	cfg        *config.Config
-	rooms      Rooms
+	chatRooms  ChatRooms
+	sfuRooms   SFURooms
 	clients    Clients
 	register   chan *Client
 	unregister chan *Client
@@ -33,7 +36,8 @@ type Hub struct {
 func NewHub(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *Hub {
 	hub := &Hub{
 		cfg:        cfg,
-		rooms:      make(Rooms),
+		chatRooms:  make(ChatRooms),
+		sfuRooms:   make(SFURooms),
 		clients:    make(Clients),
 		register:   make(chan *Client, 10),
 		unregister: make(chan *Client, 10),
@@ -55,27 +59,56 @@ func (hub *Hub) Run() {
 			hub.mutex.Unlock()
 
 		case client := <-hub.unregister:
+			affectedSFURooms := make([]uint, 0)
+
 			hub.mutex.Lock()
 			if _, exists := hub.clients[client.ID]; exists {
 				// Сохраняем комнаты для очистки
-				roomsToLeave := make([]uint, 0, len(client.Rooms))
 				for roomID := range client.Rooms {
-					roomsToLeave = append(roomsToLeave, roomID)
 					// Удаляем клиента из комнаты
-					if room, exists := hub.rooms[roomID]; exists {
+					if room, exists := hub.chatRooms[roomID]; exists {
 						delete(room, client.ID)
 						if len(room) == 0 {
-							delete(hub.rooms, roomID)
+							delete(hub.chatRooms, roomID)
 						}
 					}
 				}
+
+				// Удаляем клиента из SFU-комнат (на случай, если соединение оборвалось без call-leave)
+				for roomID, room := range hub.sfuRooms {
+					if _, ok := room[client.ID]; ok {
+						delete(room, client.ID)
+						affectedSFURooms = append(affectedSFURooms, roomID)
+
+						if len(room) == 0 {
+							delete(hub.sfuRooms, roomID)
+						}
+					}
+				}
+
 				delete(hub.clients, client.ID)
 				client.Conn.Close()
 			}
 			hub.mutex.Unlock()
 
+			// Уведомляем оставшихся участников SFU-комнат, чтобы они могли убрать аудио пользователя
+			for _, roomID := range affectedSFURooms {
+				clients, err := hub.clientsSFURoom(roomID)
+				if err != nil {
+					continue
+				}
+
+				hub.broadcastToSFURoom(roomID, &dto.ResponseMessage{
+					Type: "call-leave",
+					Data: map[string]any{
+						"clients": clients,
+						"user_id": client.ID,
+					},
+				})
+			}
+
 		case message := <-hub.broadcast:
-			hub.broadcastToRoom(message.ChatID, message)
+			hub.broadcastToChatRoom(message.ChatID, message)
 		}
 	}
 }
@@ -110,11 +143,13 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 	}
 
 	client := &Client{
-		Conn:       conn,
-		ID:         user.ID,
-		Username:   user.Username,
-		AvatarPath: user.AvatarPath,
-		Rooms:      make(map[uint]bool),
+		Conn: conn,
+		Client: model.Client{
+			ID:         user.ID,
+			Username:   user.Username,
+			AvatarPath: user.AvatarPath,
+		},
+		Rooms: make(map[uint]bool),
 	}
 
 	hub.register <- client
@@ -125,7 +160,7 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 		return err
 	}
 
-	err = hub.joinToUserRooms(client, chats)
+	err = hub.joinToUserChatRooms(client, chats)
 	if err != nil {
 		if pkgErrors.Is(err, domainError.ErrUserIsNotMemberOfChat) {
 			err = client.SendMessage(&dto.ResponseMessage{
@@ -150,6 +185,7 @@ func (hub *Hub) receiveMessageHandler(conn *websocket.Conn, client *Client) {
 		message := new(dto.ClientMessage)
 		err := conn.ReadJSON(message)
 		if err != nil {
+			fmt.Printf("ws error: %v\n", err)
 			hub.unregister <- client
 			return
 		}
