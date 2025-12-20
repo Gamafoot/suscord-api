@@ -1,4 +1,4 @@
 .vscode
 config/*
 !config/example.yaml
-src/media
+src/assets/media
