@@ -33,13 +33,13 @@ func main() {
 		log.Fatalf("failed to connect to database: %+v", err)
 	}
 
-	if err = db.AutoMigrate(tables...); err != nil {
-		log.Fatalf("failed to migrate models: %v", err)
-	}
-
 	scripts, err := getSqlScripts("type")
 	if err != nil {
 		log.Fatalf("failed get type scripts: %+v\n", err)
+	}
+
+	if err = db.AutoMigrate(tables...); err != nil {
+		log.Fatalf("failed to migrate models: %v", err)
 	}
 
 	err = executeScripts(db, scripts)
