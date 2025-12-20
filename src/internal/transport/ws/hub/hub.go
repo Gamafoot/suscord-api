@@ -3,6 +3,7 @@ package hub
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"suscord/internal/config"
 	domainError "suscord/internal/domain/errors"
 	"suscord/internal/domain/eventbus"
@@ -10,6 +11,7 @@ import (
 	"suscord/internal/transport/ws/hub/dto"
 	"suscord/internal/transport/ws/hub/model"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -55,7 +57,6 @@ func (hub *Hub) Run() {
 		case client := <-hub.register:
 			hub.mutex.Lock()
 			hub.clients[client.ID] = client
-			hub.clients[client.ID].Rooms = make(map[uint]bool)
 			hub.mutex.Unlock()
 
 		case client := <-hub.unregister:
@@ -116,6 +117,10 @@ func (hub *Hub) Run() {
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		return strings.HasPrefix(origin, "https://suscord.fun")
+	},
 }
 
 func (hub *Hub) WebsocketHandler(c echo.Context) error {
@@ -124,23 +129,51 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 		return c.NoContent(http.StatusForbidden)
 	}
 
+	conn, err := upgrader.Upgrade(c.Response().Writer, c.Request(), nil)
+	if err != nil {
+		fmt.Printf("ws error: %+v\n", pkgErrors.WithStack(err))
+		return pkgErrors.WithStack(err)
+	}
+
 	session, err := hub.storage.Database().Session().GetByUUID(c.Request().Context(), sessionUUID)
 	if err != nil {
+		fmt.Printf("ws error: %+v\n", err)
+		_ = conn.Close()
 		if pkgErrors.Is(err, domainError.ErrRecordNotFound) {
 			return c.NoContent(http.StatusForbidden)
 		}
 		return err
 	}
 
-	conn, err := upgrader.Upgrade(c.Response().Writer, c.Request(), nil)
-	if err != nil {
-		return pkgErrors.WithStack(err)
-	}
-
 	user, err := hub.storage.Database().User().GetByID(c.Request().Context(), session.UserID)
 	if err != nil {
-		return pkgErrors.WithStack(err)
+		fmt.Printf("ws error: %+v\n", err)
+		conn.Close()
+		return nil
 	}
+
+	conn.SetReadDeadline(time.Now().Add(hub.cfg.WebSocket.PongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(hub.cfg.WebSocket.PongWait))
+		return nil
+	})
+
+	go func() {
+		ticker := time.NewTicker(hub.cfg.WebSocket.PingPeriod)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			err := conn.WriteControl(
+				websocket.PingMessage,
+				[]byte{},
+				time.Now().Add(hub.cfg.WebSocket.Timeout),
+			)
+			if err != nil {
+				conn.Close()
+				return
+			}
+		}
+	}()
 
 	client := &Client{
 		Conn: conn,
@@ -152,30 +185,34 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 		Rooms: make(map[uint]bool),
 	}
 
-	hub.register <- client
-
 	chats, err := hub.storage.Database().Chat().GetUserChats(c.Request().Context(), user.ID)
 	if err != nil {
+		fmt.Printf("ws error: %+v\n", pkgErrors.WithStack(err))
 		conn.Close()
-		return err
+		return nil
 	}
 
 	err = hub.joinToUserChatRooms(client, chats)
 	if err != nil {
 		if pkgErrors.Is(err, domainError.ErrUserIsNotMemberOfChat) {
-			err = client.SendMessage(&dto.ResponseMessage{
+			sendErr := client.SendMessage(&dto.ResponseMessage{
 				Type: "join_room_error",
 				Data: map[string]interface{}{
 					"message": "You are not member this room",
 				},
 			})
-			if err != nil {
-				return err
+			if sendErr != nil {
+				fmt.Printf("ws error: %+v\n", pkgErrors.WithStack(sendErr))
 			}
+			conn.Close()
+			return nil
 		}
-		return err
+		fmt.Printf("ws error: %+v\n", pkgErrors.WithStack(err))
+		conn.Close()
+		return nil
 	}
 
+	hub.register <- client
 	hub.receiveMessageHandler(conn, client)
 	return nil
 }
@@ -185,14 +222,14 @@ func (hub *Hub) receiveMessageHandler(conn *websocket.Conn, client *Client) {
 		message := new(dto.ClientMessage)
 		err := conn.ReadJSON(message)
 		if err != nil {
-			fmt.Printf("ws error: %v\n", err)
+			fmt.Printf("ws readJSON: %v\n", pkgErrors.WithStack(err))
 			hub.unregister <- client
 			return
 		}
 
 		err = hub.handleClientMessage(client, message)
 		if err != nil {
-			fmt.Printf("%+v\n", err)
+			fmt.Printf("ws handleClientMessage: %+v\n", err)
 		}
 	}
 }
