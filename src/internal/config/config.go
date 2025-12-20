@@ -12,8 +12,14 @@ import (
 type Config struct {
 	Server struct {
 		Port    string        `yaml:"port" env-default:"8000"`
-		Timeout time.Duration `yaml:"timeout" env-default:"5s"`
+		Timeout time.Duration `yaml:"timeout" env-default:"10s"`
 	} `yaml:"server"`
+
+	WebSocket struct {
+		Timeout    time.Duration `yaml:"timeout" env-default:"10s"`
+		PongWait   time.Duration `yaml:"pong_wait" env-default:"30s"`
+		PingPeriod time.Duration `yaml:"ping_period" env-default:"15s"`
+	} `yaml:"websocket"`
 
 	Database struct {
 		URL      string `yaml:"url" env-required:"true"`

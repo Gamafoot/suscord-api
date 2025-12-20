@@ -1,8 +1,20 @@
-listen:
+server:
   port: 8000
+  timeout: 10s
+
+websocket:
+  timeout: 10s
+  pong_wait: 30s
+  ping_period: 15s
 
 database:
   url: postgres://postgres:pass@localhost:5432/suscord
+  log_level: silent
+
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
 
 hash:
   salt: cy@$N8f2r\g{3@)rj52
@@ -22,6 +34,7 @@ cors:
     - "DELETE"
   allowed_headers:
     - "Origin"
+    - "Connection"
     - "Content-Type"
     - "Authorization"
 
