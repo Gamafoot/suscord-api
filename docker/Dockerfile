@@ -5,5 +5,5 @@ COPY src /app/src
 
 WORKDIR /app/src
 
-RUN go build cmd/migrate.go
-RUN go build cmd/main.go
+RUN go build cmd/migrate/migrate.go
+RUN go build cmd/main/main.go
