@@ -26,6 +26,10 @@ function discordApp() {
         isMuted: false,
         callStatus: 'Соединение...',
         incomingCall: { show: false, from: '', chatId: null, offer: null, timeLeft: 10 },
+        callMembers: [],
+        callAudioElsByUserId: new Map(),
+        callRemoteStreamsByUserId: new Map(),
+        _audioMountedListenerAdded: false,
         remoteVolume: 100,
         noiseSuppression: true,
         inputSensitivity: 0,
@@ -807,7 +811,7 @@ function discordApp() {
         },
 
         async handleWsMessage(msg) {
-            if (['call-offer', 'call-answer', 'ice-candidate', 'call-ended', 'call-declined'].includes(msg.type)) {
+            if (msg.type.includes("call-")) {
                 this.handleWebRTCSignaling(msg);
                 return;
             }
@@ -1161,203 +1165,261 @@ function discordApp() {
             new bootstrap.Modal(document.getElementById('imageModal')).show();
         },
 
-        // WebRTC Звонки
-        async startCall() {
-            if (!this.activeChat) return;
+        tiles: new Map(),
+        signal: null,
+        client: null,
+        localStream: null,
+
+        // WebRTC Звонки (SFU)
+        async startCall(chatId) {
+            let callingChatId = null;
+
+            if (!this.activeChat && !chatId) return;
+
+            if (this.activeChat) {
+                callingChatId = this.activeChat;
+            } else if (chatId) {
+                callingChatId = chatId;
+            }
+
+            this.incomingCall = {
+                chatId: callingChatId
+            };
+
+            this.isCallActive = true;
+            this.callStatus = 'Подлючение...';
 
             try {
-                const rawStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: this.noiseSuppression,
-                        autoGainControl: false
-                    }
-                });
-
-                this.audioContext = new AudioContext();
-                const source = this.audioContext.createMediaStreamSource(rawStream);
-                this.gainNode = this.audioContext.createGain();
-                const gain = Math.pow(10, this.inputSensitivity / 20);
-                this.gainNode.gain.value = gain;
-
-                const destination = this.audioContext.createMediaStreamDestination();
-                source.connect(this.gainNode);
-                this.gainNode.connect(destination);
-
-                this.localStream = destination.stream;
-                this.isCallActive = true;
-                this.callStatus = 'Вызов...';
-
-                this.peerConnection = new RTCPeerConnection(this.rtcConfig);
-
-                this.localStream.getTracks().forEach(track => {
-                    this.peerConnection.addTrack(track, this.localStream);
-                });
-
-                this.peerConnection.ontrack = (event) => {
-                    setTimeout(() => {
-                        const remoteAudio = document.querySelector('audio[x-ref="remoteAudio"]');
-                        if (remoteAudio) {
-                            remoteAudio.srcObject = event.streams[0];
-                            remoteAudio.play().catch(e => console.error('Play error:', e));
-                        }
-                    }, 100);
-                };
-
-                this.peerConnection.onicecandidate = (event) => {
-                    if (event.candidate && this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.send(JSON.stringify({
-                            type: 'ice-candidate',
-                            data: JSON.stringify({ chatId: this.activeChat, candidate: event.candidate })
-                        }));
-                    }
-                };
-
-                this.peerConnection.oniceconnectionstatechange = () => {
-                    if (this.peerConnection.iceConnectionState === 'connected') {
-                        this.callStatus = 'В звонке';
-                    } else if (this.peerConnection.iceConnectionState === 'disconnected' ||
-                        this.peerConnection.iceConnectionState === 'failed') {
-                        this.endCall();
-                    }
-                };
-
-                const offer = await this.peerConnection.createOffer();
-                await this.peerConnection.setLocalDescription(new RTCSessionDescription(offer));
+                if (this.currentUser?.id) {
+                    const me = {
+                        id: this.currentUser.id,
+                        username: this.currentUser.username,
+                        avatar_url: this.currentUser.avatar_url
+                    };
+                    this.callMembers = [me];
+                }
 
                 if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                     this.ws.send(JSON.stringify({
-                        type: 'call-offer',
-                        data: JSON.stringify({ chatId: this.activeChat, offer: offer })
+                        type: 'call-invite',
+                        chat_id: callingChatId,
                     }));
                 }
 
-                // Таймер повторных попыток дозвона (10 секунд)
-                let attempts = 0;
-                this.callOfferTimer = setInterval(() => {
-                    attempts++;
-                    if (attempts >= 10) {
-                        clearInterval(this.callOfferTimer);
-                        this.callOfferTimer = null;
-                        if (!this.peerConnection || this.peerConnection.iceConnectionState !== 'connected') {
-                            this.showNotification('Нет ответа', '❌');
-                            this.endCall();
-                        }
-                        return;
-                    }
-                    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.isCallActive) {
-                        this.ws.send(JSON.stringify({
-                            type: 'call-offer',
-                            data: JSON.stringify({ chatId: this.activeChat, offer: offer })
-                        }));
-                    }
-                }, 1000);
-            } catch (error) {
-                console.error('Ошибка при запуске звонка:', error);
+            } catch (err) {
+                console.error('Ошибка при запуске звонка:', err);
                 this.showNotification('Не удалось получить доступ к микрофону', '❌');
                 this.endCall();
             }
         },
 
+        upsertCallMember(client) {
+            if (!client?.id) return;
+
+            const idx = (this.callMembers || []).findIndex(c => c.id === client.id);
+            if (idx === -1) {
+                this.callMembers = [...(this.callMembers || []), client];
+            } else {
+                const next = [...this.callMembers];
+                next[idx] = { ...next[idx], ...client };
+                this.callMembers = next;
+            }
+        },
+
+        handleWebRTCSignaling(msg) {
+            switch (msg.type) {
+                case 'call-invite': {
+                    if (this.isCallActive) return;
+                    const chatId = msg.chat_id;
+                    const chat = this.chats?.find(c => c.id === chatId);
+
+                    this.incomingCall = {
+                        show: true,
+                        from: chat?.name || 'чат',
+                        chatId,
+                        offer: null,
+                        timeLeft: 10
+                    };
+
+                    if (this.incomingCallTimer) clearInterval(this.incomingCallTimer);
+                    this.incomingCallTimer = setInterval(() => {
+                        if (!this.incomingCall?.show) {
+                            clearInterval(this.incomingCallTimer);
+                            this.incomingCallTimer = null;
+                            return;
+                        }
+
+                        this.incomingCall.timeLeft -= 1;
+                        if (this.incomingCall.timeLeft <= 0) {
+                            clearInterval(this.incomingCallTimer);
+                            this.incomingCallTimer = null;
+                            this.rejectCall();
+                        }
+                    }, 1000);
+                    break;
+                }
+
+                case 'call-accept': {
+                    // Кто-то присоединился к звонку
+                    this.upsertCallMember(msg.data);
+
+                    this.connectToCall(this.activeChat);
+
+                    // Для инициатора: переключаем UI в "В звонке" после первого присоединения
+                    if (this.isCallActive) {
+                        this.callStatus = 'В звонке';
+                    }
+
+                    console.log("user was accept invite: send stream");
+                    this.wsSendStream();
+                    break;
+                }
+
+                case 'call-reject': {
+                    this.endCall({ notifyServer: false });
+                    break;
+                }
+
+                case 'call-clients': {
+                    this.callMembers = msg.data?.clients;
+                    break;
+                }
+
+                case 'call-leave': {
+                    this.callMembers = msg.data?.clients;
+
+                    if (this.callMembers.length === 1) {
+                        this.showNotification('Звонок завершён', '📞');
+                        this.endCall({ notifyServer: false });
+                    }
+
+                    break;
+                }
+
+                case 'call-ended': {
+                    this.showNotification('Звонок завершён', '📞');
+                    this.endCall({ notifyServer: false });
+                    break;
+                }
+
+                case 'call-stream': {
+                    console.log("set stream", msg);
+                    this.callUserStreams.set(msg.data.stream_id, msg.data.user_id);
+                    break;
+                }
+            }
+        },
+
+        callUserStreams: new Map(),
+
+        connectToCall(chatId) {
+            if (this.client) {
+                return;
+            }
+
+            const protocol = location.protocol.includes("https") ? "wss" : "ws";
+            const wsURL = `${protocol}://${location.hostname}:7002/ws`;
+
+            this.signal = new Signal.IonSFUJSONRPCSignal(wsURL);
+            this.client = new IonSDK.Client(this.signal);
+
+            this.client.ontrack = (track, stream) => {
+                console.log('track', track);
+                console.log('stream', stream);
+
+                const userId = this.callUserStreams.get(stream.id);
+                const member = this.callMembers.find(m => m.id === userId);
+
+                console.log("user found stream!", userId, stream.id);
+                console.log("len stream", this.callUserStreams.size);
+
+                if (member) {
+                    member.stream = stream;
+                }
+
+                track.onended = () => {
+                    if (userId != null) {
+                        this.removeRemoteAudioByUserId(userId);
+                    }
+                };
+            };
+
+            this.signal.onopen = async () => {
+                this.client.join('' + chatId, '' + this.currentUser.id);
+
+                this.localStream = await IonSDK.LocalStream.getUserMedia({
+                    audio: true,
+                    simulcast: true,
+                });
+
+                this.wsSendStream();
+
+                this.client.publish(this.localStream);
+            };
+
+            this.signal.onerror = (e) => {
+                console.error('signal error', e);
+                this.showNotification('Ошибка подключения', '⚠️');
+                this.incomingCall = {};
+                this.callStatus = null;
+            };
+        },
+
+        wsSendStream() {
+            if (this.localStream && this.ws) {
+                this.ws.send(JSON.stringify({
+                    type: "call-stream",
+                    chat_id: this.incomingCall.chatId,
+                    data: {
+                        user_id: this.currentUser.id,
+                        stream_id: this.localStream.id
+                    }
+                }));
+            }
+        },
+
         async acceptCall() {
-            if (!this.incomingCall.offer) return;
+            if (!this.incomingCall.chatId) return;
 
             if (this.incomingCallTimer) {
                 clearInterval(this.incomingCallTimer);
                 this.incomingCallTimer = null;
             }
 
-            try {
-                const rawStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: this.noiseSuppression,
-                        autoGainControl: false
-                    }
-                });
+            const callChatId = this.incomingCall.chatId;
+            this.incomingCall.show = false;
+            this.isCallActive = true;
+            this.callStatus = 'В звонке';
 
-                this.audioContext = new AudioContext();
-                const source = this.audioContext.createMediaStreamSource(rawStream);
-                this.gainNode = this.audioContext.createGain();
-                const gain = Math.pow(10, this.inputSensitivity / 20);
-                this.gainNode.gain.value = gain;
+            this.ws.send(JSON.stringify({
+                type: 'call-accept',
+                chat_id: callChatId,
+            }));
 
-                const destination = this.audioContext.createMediaStreamDestination();
-                source.connect(this.gainNode);
-                this.gainNode.connect(destination);
+            // Просто начинаем звонок (подключаемся к SFU)
+            this.connectToCall(callChatId);
 
-                this.localStream = destination.stream;
-                this.isCallActive = true;
-                this.callStatus = 'Соединение...';
-                const callChatId = this.incomingCall.chatId;
-                this.incomingCall.show = false;
-
-                this.peerConnection = new RTCPeerConnection(this.rtcConfig);
-
-                this.localStream.getTracks().forEach(track => {
-                    this.peerConnection.addTrack(track, this.localStream);
-                });
-
-                this.peerConnection.ontrack = (event) => {
-                    setTimeout(() => {
-                        const remoteAudio = document.querySelector('audio[x-ref="remoteAudio"]');
-                        if (remoteAudio) {
-                            remoteAudio.srcObject = event.streams[0];
-                            remoteAudio.play().catch(e => console.error('Play error:', e));
-                        }
-                    }, 100);
-                };
-
-                this.peerConnection.onicecandidate = (event) => {
-                    if (event.candidate && this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.send(JSON.stringify({
-                            type: 'ice-candidate',
-                            data: JSON.stringify({ chatId: callChatId, candidate: event.candidate })
-                        }));
-                    }
-                };
-
-                this.peerConnection.oniceconnectionstatechange = () => {
-                    if (this.peerConnection.iceConnectionState === 'connected') {
-                        this.callStatus = 'В звонке';
-                    } else if (this.peerConnection.iceConnectionState === 'disconnected' ||
-                        this.peerConnection.iceConnectionState === 'failed') {
-                        this.endCall();
-                    }
-                };
-
-                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(this.incomingCall.offer));
-                const answer = await this.peerConnection.createAnswer();
-                await this.peerConnection.setLocalDescription(new RTCSessionDescription(answer));
-
-                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                    this.ws.send(JSON.stringify({
-                        type: 'call-answer',
-                        data: JSON.stringify({ chatId: callChatId, answer: answer })
-                    }));
-                }
-            } catch (error) {
-                console.error('Ошибка при принятии звонка:', error);
-                this.showNotification('Не удалось принять звонок', '❌');
-                this.endCall();
-            }
+            console.log("accept call: send stream");
+            this.wsSendStream();
         },
 
-        declineCall() {
+        rejectCall() {
+            this.callStatus = null;
+
             if (this.incomingCallTimer) {
                 clearInterval(this.incomingCallTimer);
                 this.incomingCallTimer = null;
             }
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({
-                    type: 'call-declined',
-                    data: JSON.stringify({ chatId: this.incomingCall.chatId })
+                    type: 'call-reject',
+                    chat_id: this.incomingCall.chatId,
                 }));
             }
             this.incomingCall = { show: false, from: '', chatId: null, offer: null, timeLeft: 10 };
         },
 
-        endCall() {
+        endCall({ notifyServer = true } = {}) {
             if (this.callOfferTimer) {
                 clearInterval(this.callOfferTimer);
                 this.callOfferTimer = null;
@@ -1368,19 +1430,24 @@ function discordApp() {
                 this.incomingCallTimer = null;
             }
 
-            if (this.incomingCall) {
-                this.incomingCall = { show: false, from: '', chatId: null, offer: null, timeLeft: 10 };
-            }
-
-            if (this.peerConnection) {
-                this.peerConnection.close();
-                this.peerConnection = null;
-            }
-
             if (this.localStream) {
-                this.localStream.getTracks().forEach(track => track.stop());
+                this.localStream.getTracks().forEach(track => { track.stop(); });
                 this.localStream = null;
             }
+
+            if (this.client) {
+                try {
+                    this.client.leave();
+                } catch (err) {
+                    console.warn("client.leave failed:", err);
+                }
+            }
+
+            if (this.client?.pc) {
+                this.client.pc.close();
+            }
+
+            this.client = null;
 
             if (this.audioContext) {
                 this.audioContext.close();
@@ -1388,11 +1455,28 @@ function discordApp() {
                 this.gainNode = null;
             }
 
-            if (this.isCallActive && this.ws && this.ws.readyState === WebSocket.OPEN) {
+            if (notifyServer && this.isCallActive && this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({
-                    type: 'call-ended',
-                    data: JSON.stringify({ chatId: this.activeChat })
+                    type: 'call-leave',
+                    chat_id: this.incomingCall.chatId,
+                    data: {
+                        user_id: this.currentUser.id
+                    }
                 }));
+            }
+
+            // Чистим удалённые аудио/участников
+            for (const userId of this.callAudioElsByUserId.keys()) {
+                if (userId !== this.currentUser?.id) {
+                    this.removeRemoteAudioByUserId(userId);
+                }
+            }
+            this.callMembers = [];
+            this.callAudioElsByUserId.clear();
+            this.callRemoteStreamsByUserId.clear();
+
+            if (this.incomingCall) {
+                this.incomingCall = { show: false, from: '', chatId: null, offer: null, timeLeft: 10, chat_id: null };
             }
 
             this.isCallActive = false;
@@ -1436,7 +1520,7 @@ function discordApp() {
 
         async toggleNoiseSuppression() {
             this.noiseSuppression = !this.noiseSuppression;
-            if (this.localStream && this.isCallActive && this.peerConnection) {
+            if (this.localStream && this.isCallActive && this.client) {
                 const oldStream = this.localStream;
                 const wasMuted = this.isMuted;
                 try {
@@ -1452,11 +1536,6 @@ function discordApp() {
                         this.localStream.getAudioTracks().forEach(track => track.enabled = false);
                     }
 
-                    const sender = this.peerConnection.getSenders().find(s => s.track?.kind === 'audio');
-                    if (sender && sender.track) {
-                        await sender.replaceTrack(this.localStream.getAudioTracks()[0]);
-                    }
-
                     oldStream.getTracks().forEach(track => track.stop());
                 } catch (error) {
                     console.error('Ошибка переключения шумоподавления:', error);
@@ -1465,76 +1544,5 @@ function discordApp() {
                 }
             }
         },
-
-        async handleWebRTCSignaling(msg) {
-            try {
-                const data = msg.data;
-                console.log('WebRTC Signal:', msg.type, data);
-
-                switch (msg.type) {
-                    case 'call-offer':
-                        if (this.incomingCall.show) {
-                            return;
-                        }
-
-                        if (this.callOfferTimer) {
-                            clearInterval(this.callOfferTimer);
-                            this.callOfferTimer = null;
-                        }
-
-                        const chat = this.chats.find(c => c.id === data.chatId) || this.allChats.find(c => c.id === data.chatId);
-                        this.incomingCall = {
-                            show: true,
-                            from: chat?.name || 'Неизвестный',
-                            chatId: data.chatId,
-                            offer: data.offer,
-                            timeLeft: 10
-                        };
-
-                        // Таймер на ответ (10 секунд)
-                        if (this.incomingCallTimer) {
-                            clearInterval(this.incomingCallTimer);
-                        }
-                        this.incomingCallTimer = setInterval(() => {
-                            this.incomingCall.timeLeft--;
-                            if (this.incomingCall.timeLeft <= 0) {
-                                clearInterval(this.incomingCallTimer);
-                                this.incomingCallTimer = null;
-                                this.declineCall();
-                            }
-                        }, 1000);
-                        break;
-
-                    case 'call-answer':
-                        if (this.callOfferTimer) {
-                            clearInterval(this.callOfferTimer);
-                            this.callOfferTimer = null;
-                        }
-                        if (this.peerConnection && data.answer) {
-                            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                            this.callStatus = 'В звонке';
-                        }
-                        break;
-
-                    case 'ice-candidate':
-                        if (this.peerConnection && data.candidate) {
-                            await this.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                        }
-                        break;
-
-                    case 'call-ended':
-                        this.showNotification('Звонок завершен', '📞');
-                        this.endCall();
-                        break;
-
-                    case 'call-declined':
-                        this.showNotification('Звонок отклонен', '❌');
-                        this.endCall();
-                        break;
-                }
-            } catch (error) {
-                console.error('Ошибка обработки WebRTC сигнала:', error);
-            }
-        }
     };
 }

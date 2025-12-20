@@ -368,9 +368,11 @@
                                 <strong>👥 Участники</strong>
                             </div>
                             <div class="card-body p-2">
-                                <template x-for="member in onlineMembers.filter(m => m.id !== currentUser?.id)"
+                                <template x-for="member in callMembers.filter(m => m.id !== currentUser?.id)"
                                     :key="member.id">
                                     <div class="card bg-secondary mb-2">
+                                        <audio autoplay
+                                            x-effect="if (member.stream) { $el.srcObject = member.stream; $el.play().catch(() => {}) }"></audio>
                                         <div class="card-body p-3">
                                             <div class="d-flex align-items-center mb-2">
                                                 <div style="width: 40px; height: 40px; border-radius: 50%; background: #5865F2; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 12px;"
@@ -403,7 +405,6 @@
                         </div>
                     </div>
 
-                    <audio x-ref="remoteAudio" autoplay style="display: none;"></audio>
                     <audio x-ref="localAudio" muted style="display: none;"></audio>
                 </div>
             </div>
@@ -446,7 +447,7 @@
                         style="flex: 1; background: var(--discord-success); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
                         Принять
                     </button>
-                    <button @click="declineCall()"
+                    <button @click="rejectCall()"
                         style="flex: 1; background: var(--discord-danger); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
                         Отклонить
                     </button>
@@ -573,6 +574,8 @@
         </template>
     </div>
 
+    <script src="/static/js/ion-sdk.min.js"></script>
+    <script src="/static/js/json-rpc.min.js"></script>
     <script src="/static/js/index.js"></script>
 
     <script>
