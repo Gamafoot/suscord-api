@@ -1320,8 +1320,16 @@ function discordApp() {
             const protocol = location.protocol.includes("https") ? "wss" : "ws";
             const wsURL = `${protocol}://${location.hostname}:7002/ws`;
 
+            const rtcConfig = {
+                iceTransportPolicy: 'all',
+                bundlePolicy: 'max-bundle',
+            };
+
             this.signal = new Signal.IonSFUJSONRPCSignal(wsURL);
-            this.client = new IonSDK.Client(this.signal);
+            this.client = new IonSDK.Client(this.signal, rtcConfig);
+
+            const pc = this.client.pc;
+            console.log(pc.getConfiguration().iceServers);
 
             this.client.ontrack = (track, stream) => {
                 console.log('track', track);
@@ -1345,11 +1353,13 @@ function discordApp() {
             };
 
             this.signal.onopen = async () => {
+                console.log("on open", '' + chatId, '' + this.currentUser.id);
                 this.client.join('' + chatId, '' + this.currentUser.id);
 
                 this.localStream = await IonSDK.LocalStream.getUserMedia({
                     audio: true,
-                    simulcast: true,
+                    video: false,
+                    simulcast: false,
                 });
 
                 this.wsSendStream();
