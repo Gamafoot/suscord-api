@@ -1328,18 +1328,12 @@ function discordApp() {
             this.signal = new Signal.IonSFUJSONRPCSignal(wsURL);
             this.client = new IonSDK.Client(this.signal, rtcConfig);
 
-            const pc = this.client.pc;
-            console.log(pc.getConfiguration().iceServers);
-
             this.client.ontrack = (track, stream) => {
                 console.log('track', track);
                 console.log('stream', stream);
 
                 const userId = this.callUserStreams.get(stream.id);
                 const member = this.callMembers.find(m => m.id === userId);
-
-                console.log("user found stream!", userId, stream.id);
-                console.log("len stream", this.callUserStreams.size);
 
                 if (member) {
                     member.stream = stream;
