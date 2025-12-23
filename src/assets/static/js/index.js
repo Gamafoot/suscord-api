@@ -1318,15 +1318,10 @@ function discordApp() {
             }
 
             const protocol = location.protocol.includes("https") ? "wss" : "ws";
-            const wsURL = `${protocol}://${location.hostname}:7002/ws`;
-
-            const rtcConfig = {
-                iceTransportPolicy: 'all',
-                bundlePolicy: 'max-bundle',
-            };
+            const wsURL = `${protocol}://${location.hostname}/ws`;
 
             this.signal = new Signal.IonSFUJSONRPCSignal(wsURL);
-            this.client = new IonSDK.Client(this.signal, rtcConfig);
+            this.client = new IonSDK.Client(this.signal);
 
             this.client.ontrack = (track, stream) => {
                 console.log('track', track);
