@@ -3,7 +3,6 @@ package hub
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"suscord/internal/config"
 	domainError "suscord/internal/domain/errors"
 	"suscord/internal/domain/eventbus"
@@ -12,6 +11,8 @@ import (
 	"suscord/internal/transport/ws/hub/model"
 	"sync"
 	"time"
+
+	"github.com/samber/lo"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -118,8 +119,9 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
+		cfg := config.GetConfig()
 		origin := r.Header.Get("Origin")
-		return strings.HasPrefix(origin, "https://suscord.fun")
+		return lo.Contains(cfg.CORS.Origins, origin)
 	},
 }
 
@@ -132,7 +134,7 @@ func (hub *Hub) WebsocketHandler(c echo.Context) error {
 	conn, err := upgrader.Upgrade(c.Response().Writer, c.Request(), nil)
 	if err != nil {
 		fmt.Printf("ws error: %+v\n", pkgErrors.WithStack(err))
-		return pkgErrors.WithStack(err)
+		return nil
 	}
 
 	session, err := hub.storage.Database().Session().GetByUUID(c.Request().Context(), sessionUUID)
