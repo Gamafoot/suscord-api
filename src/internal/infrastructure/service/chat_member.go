@@ -4,12 +4,12 @@ import (
 	"context"
 	"strconv"
 	"suscord/internal/config"
+	"suscord/internal/domain/broker"
+	"suscord/internal/domain/broker/event"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
-	"suscord/internal/domain/eventbus"
-	"suscord/internal/domain/eventbus/dto"
+	"suscord/internal/domain/logger"
 	"suscord/internal/domain/storage"
-	"suscord/internal/infrastructure/eventbus/mapper"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,16 +17,23 @@ import (
 )
 
 type chatMemberService struct {
-	cfg      *config.Config
-	storage  storage.Storage
-	eventbus eventbus.Bus
+	cfg     *config.Config
+	storage storage.Storage
+	broker  broker.Broker
+	logger  logger.Logger
 }
 
-func NewChatMemberService(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *chatMemberService {
+func NewChatMemberService(
+	cfg *config.Config,
+	storage storage.Storage,
+	eventbus broker.Broker,
+	logger logger.Logger,
+) *chatMemberService {
 	return &chatMemberService{
-		cfg:      cfg,
-		storage:  storage,
-		eventbus: eventbus,
+		cfg:     cfg,
+		storage: storage,
+		broker:  eventbus,
+		logger:  logger,
 	}
 }
 
@@ -92,11 +99,22 @@ func (s *chatMemberService) SendInvite(ctx context.Context, ownerID, chatID, use
 		return err
 	}
 
-	s.eventbus.Publish(&dto.InviteToRoom{
-		Code:   uuid.String(),
-		UserID: userID,
-		ChatID: chatID,
-	})
+	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+	defer cansel()
+
+	err = s.broker.Publish(brokerCtx, event.NewChatInvite(chatID, userID))
+	if err != nil {
+		s.logger.Err(err,
+			logger.Field{
+				Key:   "chat_id",
+				Value: chatID,
+			},
+			logger.Field{
+				Key:   "user_id",
+				Value: userID,
+			},
+		)
+	}
 
 	return nil
 }
@@ -117,13 +135,22 @@ func (s *chatMemberService) AcceptInvite(ctx context.Context, userID uint, code 
 		return err
 	}
 
-	user, err := s.storage.Database().User().GetByID(ctx, userID)
-	if err != nil {
-		return err
-	}
+	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+	defer cansel()
 
-	data := mapper.NewUserInChat(uint(chatID), user, s.cfg.Media.Url)
-	s.eventbus.Publish(data)
+	err = s.broker.Publish(brokerCtx, event.NewChatUserJoined(uint(chatID), userID))
+	if err != nil {
+		s.logger.Err(err,
+			logger.Field{
+				Key:   "chat_id",
+				Value: chatID,
+			},
+			logger.Field{
+				Key:   "user_id",
+				Value: userID,
+			},
+		)
+	}
 
 	return nil
 }
@@ -143,8 +170,22 @@ func (s *chatMemberService) LeaveFromChat(ctx context.Context, chatID, userID ui
 		return err
 	}
 
-	data := mapper.NewLeftChat(chatID, userID)
-	s.eventbus.Publish(data)
+	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+	defer cansel()
+
+	err = s.broker.Publish(brokerCtx, event.NewChatUserLeave(chatID, userID))
+	if err != nil {
+		s.logger.Err(err,
+			logger.Field{
+				Key:   "chat_id",
+				Value: chatID,
+			},
+			logger.Field{
+				Key:   "user_id",
+				Value: userID,
+			},
+		)
+	}
 
 	return nil
 }

@@ -3,26 +3,34 @@ package service
 import (
 	"context"
 	"suscord/internal/config"
+	"suscord/internal/domain/broker"
+	"suscord/internal/domain/broker/event"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
-	"suscord/internal/domain/eventbus"
+	"suscord/internal/domain/logger"
 	"suscord/internal/domain/storage"
-	"suscord/internal/infrastructure/eventbus/mapper"
 
 	"github.com/pkg/errors"
 )
 
 type chatService struct {
-	cfg      *config.Config
-	storage  storage.Storage
-	eventbus eventbus.Bus
+	cfg     *config.Config
+	storage storage.Storage
+	broker  broker.Broker
+	logger  logger.Logger
 }
 
-func NewChatService(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *chatService {
+func NewChatService(
+	cfg *config.Config,
+	storage storage.Storage,
+	broker broker.Broker,
+	logger logger.Logger,
+) *chatService {
 	return &chatService{
-		cfg:      cfg,
-		storage:  storage,
-		eventbus: eventbus,
+		cfg:     cfg,
+		storage: storage,
+		broker:  broker,
+		logger:  logger,
 	}
 }
 
@@ -56,16 +64,41 @@ func (s *chatService) GetOrCreatePrivateChat(ctx context.Context, input *entity.
 	}
 
 	if createChat {
-		data := mapper.NewJoinedPrivateChat(chat, input.UserID, s.cfg.Media.Url, true)
-		s.eventbus.Publish(data)
+		brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
 
-		chatFriend, err := s.storage.Database().Chat().GetUserChat(ctx, chatID, input.FriendID)
+		err = s.broker.Publish(brokerCtx, event.NewChatUserJoined(chatID, input.UserID))
 		if err != nil {
-			return nil, err
+			s.logger.Err(err,
+				logger.Field{
+					Key:   "chat_id",
+					Value: chatID,
+				},
+				logger.Field{
+					Key:   "user_id",
+					Value: input.UserID,
+				},
+			)
 		}
 
-		data = mapper.NewJoinedPrivateChat(chatFriend, input.FriendID, s.cfg.Media.Url)
-		s.eventbus.Publish(data)
+		cansel()
+
+		brokerCtx, cansel = context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+
+		err = s.broker.Publish(brokerCtx, event.NewChatUserJoined(chatID, input.FriendID))
+		if err != nil {
+			s.logger.Err(err,
+				logger.Field{
+					Key:   "chat_id",
+					Value: chatID,
+				},
+				logger.Field{
+					Key:   "user_id",
+					Value: input.FriendID,
+				},
+			)
+		}
+
+		cansel()
 	}
 
 	return chat, nil
@@ -110,9 +143,6 @@ func (s *chatService) CreateGroupChat(ctx context.Context, userID uint, data *en
 		return nil, err
 	}
 
-	event := mapper.NewJoinedGroupChat(chat, userID, s.cfg.Media.Url, true)
-	s.eventbus.Publish(event)
-
 	return chat, nil
 }
 
@@ -141,7 +171,18 @@ func (s *chatService) UpdateGroupChat(
 		return nil, err
 	}
 
-	s.eventbus.Publish(mapper.NewUpdateGroupChat(chat, userID, s.cfg.Media.Url))
+	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+	defer cansel()
+
+	err = s.broker.Publish(brokerCtx, event.NewChatUpdated(chat, s.cfg.Media.Url))
+	if err != nil {
+		s.logger.Err(err,
+			logger.Field{
+				Key:   "chat_id",
+				Value: chatID,
+			},
+		)
+	}
 
 	return chat, nil
 }
@@ -165,8 +206,18 @@ func (s *chatService) DeletePrivateChat(ctx context.Context, userID, chatID uint
 		return domainErrors.ErrForbidden
 	}
 
-	data := mapper.NewDeleteChat(chatID, userID)
-	s.eventbus.Publish(data)
+	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+	defer cansel()
+
+	err = s.broker.Publish(brokerCtx, event.NewChatDeleted(chatID))
+	if err != nil {
+		s.logger.Err(err,
+			logger.Field{
+				Key:   "chat_id",
+				Value: chatID,
+			},
+		)
+	}
 
 	return s.storage.Database().Chat().Delete(ctx, chatID)
 }

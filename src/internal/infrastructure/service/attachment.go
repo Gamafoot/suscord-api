@@ -3,24 +3,31 @@ package service
 import (
 	"context"
 	"suscord/internal/config"
+	"suscord/internal/domain/broker"
+	"suscord/internal/domain/broker/event"
 	domainErrors "suscord/internal/domain/errors"
-	"suscord/internal/domain/eventbus"
-	"suscord/internal/domain/eventbus/events"
+	"suscord/internal/domain/logger"
 	"suscord/internal/domain/storage"
-	"suscord/internal/infrastructure/eventbus/mapper"
 )
 
 type attachmentService struct {
-	cfg      *config.Config
-	storage  storage.Storage
-	eventbus eventbus.Bus
+	cfg     *config.Config
+	storage storage.Storage
+	broker  broker.Broker
+	logger  logger.Logger
 }
 
-func NewAttachmentService(cfg *config.Config, storage storage.Storage, eventbus eventbus.Bus) *attachmentService {
+func NewAttachmentService(
+	cfg *config.Config,
+	storage storage.Storage,
+	broker broker.Broker,
+	logger logger.Logger,
+) *attachmentService {
 	return &attachmentService{
-		cfg:      cfg,
-		storage:  storage,
-		eventbus: eventbus,
+		cfg:     cfg,
+		storage: storage,
+		broker:  broker,
+		logger:  logger,
 	}
 }
 
@@ -44,8 +51,24 @@ func (s *attachmentService) Delete(ctx context.Context, userID, attachmentID uin
 		return err
 	}
 
-	data := mapper.NewMessage(events.EventMessageUpdate, message, s.cfg.Media.Url)
-	s.eventbus.Publish(data)
+	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+	defer cansel()
+
+	fields := []logger.Field{
+		logger.Field{
+			Key:   "chat_id",
+			Value: message.ChatID,
+		},
+		logger.Field{
+			Key:   "message_id",
+			Value: message.ID,
+		},
+	}
+
+	err = s.broker.Publish(brokerCtx, event.NewMessageDeleted(message.ChatID, message.ID))
+	if err != nil {
+		s.logger.Err(err, fields...)
+	}
 
 	return nil
 }

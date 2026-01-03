@@ -2,7 +2,8 @@ package service
 
 import (
 	"suscord/internal/config"
-	"suscord/internal/domain/eventbus"
+	"suscord/internal/domain/broker"
+	"suscord/internal/domain/logger"
 	"suscord/internal/domain/service"
 	"suscord/internal/domain/storage"
 )
@@ -20,15 +21,16 @@ type _service struct {
 func NewService(
 	cfg *config.Config,
 	storage storage.Storage,
-	eventbus eventbus.Bus,
+	broker broker.Broker,
+	logger logger.Logger,
 ) *_service {
 	return &_service{
 		user:       NewUserService(storage),
 		auth:       NewAuthService(cfg, storage),
-		chat:       NewChatService(cfg, storage, eventbus),
-		chatMember: NewChatMemberService(cfg, storage, eventbus),
-		message:    NewMessageService(cfg, storage, eventbus),
-		attachment: NewAttachmentService(cfg, storage, eventbus),
+		chat:       NewChatService(cfg, storage, broker, logger),
+		chatMember: NewChatMemberService(cfg, storage, broker, logger),
+		message:    NewMessageService(cfg, storage, broker, logger),
+		attachment: NewAttachmentService(cfg, storage, broker, logger),
 		file:       NewFileService(storage),
 	}
 }
