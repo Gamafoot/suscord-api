@@ -2,3 +2,4 @@
 config/*
 !config/example.yaml
 src/assets/media
+**/logs
