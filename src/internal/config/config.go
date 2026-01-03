@@ -15,11 +15,11 @@ type Config struct {
 		Timeout time.Duration `yaml:"timeout" env-default:"10s"`
 	} `yaml:"server"`
 
-	WebSocket struct {
-		Timeout    time.Duration `yaml:"timeout" env-default:"10s"`
-		PongWait   time.Duration `yaml:"pong_wait" env-default:"30s"`
-		PingPeriod time.Duration `yaml:"ping_period" env-default:"15s"`
-	} `yaml:"websocket"`
+	Broker struct {
+		Addr     string        `yaml:"addr" env-required:"true"`
+		PoolSize int           `yaml:"pool_size" env-default:"3"`
+		Timeout  time.Duration `yaml:"timeout" env-default:"10s"`
+	} `yaml:"broker"`
 
 	Database struct {
 		URL      string `yaml:"url" env-required:"true"`
@@ -53,6 +53,11 @@ type Config struct {
 		Url    string `yaml:"url" env-default:"/static/"`
 		Folder string `yaml:"folder" env-required:"true"`
 	} `yaml:"static"`
+
+	Logger struct {
+		Level  string `yaml:"level" env-default:"info"`
+		Folder string `yaml:"folder" env-default:"assets/log"`
+	} `yaml:"logger"`
 }
 
 var cfg *Config
