@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"suscord/internal/config"
-	"suscord/internal/domain/eventbus"
 	"suscord/internal/domain/service"
 	"suscord/internal/domain/storage"
 	v1API "suscord/internal/transport/http/v1/api"
@@ -37,7 +36,6 @@ func NewHttpServer(
 	cfg *config.Config,
 	service service.Service,
 	storage storage.Storage,
-	eventbus eventbus.Bus,
 ) *httpServer {
 	server := &httpServer{
 		cfg:  cfg,
@@ -87,7 +85,6 @@ func NewHttpServer(
 		server.cfg,
 		service,
 		storage,
-		eventbus,
 		_customMiddleware,
 	)
 	handlerV1API.InitRoutes(server.echo.Group("/api/v1"))

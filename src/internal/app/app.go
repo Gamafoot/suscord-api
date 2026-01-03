@@ -1,17 +1,14 @@
 package app
 
 import (
-	"log"
 	"suscord/internal/config"
-	"suscord/internal/infrastructure/eventbus"
+	"suscord/internal/infrastructure/broker/rabbitmq"
 	"suscord/internal/infrastructure/service"
-
-	"golang.org/x/sync/errgroup"
+	"suscord/pkg/logger"
 )
 
 type App struct {
-	httpServer      *httpServer
-	websocketServer *websocketServer
+	httpServer *httpServer
 }
 
 func NewApp() (*App, error) {
@@ -19,43 +16,27 @@ func NewApp() (*App, error) {
 
 	storage, err := NewStorage(cfg)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	eventbus := eventbus.NewBus()
+	broker, err := rabbitmq.NewBroker(cfg.Broker.Addr, cfg.Broker.PoolSize)
+	if err != nil {
+		return nil, err
+	}
 
-	service := service.NewService(cfg, storage, eventbus)
+	logger, err := logger.NewLogger(cfg.Logger.Level, cfg.Logger.Folder)
+	if err != nil {
+		return nil, err
+	}
+
+	service := service.NewService(cfg, storage, broker, logger)
 
 	app := new(App)
-
-	app.httpServer = NewHttpServer(
-		cfg,
-		service,
-		storage,
-		eventbus,
-	)
-
-	app.websocketServer = NewWebsocketServer(
-		cfg,
-		app.httpServer.Echo(),
-		storage,
-		eventbus,
-	)
+	app.httpServer = NewHttpServer(cfg, service, storage)
 
 	return app, nil
 }
 
 func (a *App) Run() error {
-	eg := errgroup.Group{}
-
-	eg.Go(func() error {
-		log.Println("Websocker server is running")
-		return a.websocketServer.Run()
-	})
-
-	eg.Go(func() error {
-		return a.httpServer.Run()
-	})
-
-	return eg.Wait()
+	return a.httpServer.Run()
 }
