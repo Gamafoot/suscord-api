@@ -16,9 +16,8 @@ type Config struct {
 	} `yaml:"server"`
 
 	Broker struct {
-		Addr     string        `yaml:"addr" env-required:"true"`
-		PoolSize int           `yaml:"pool_size" env-default:"3"`
-		Timeout  time.Duration `yaml:"timeout" env-default:"10s"`
+		Addr     string `yaml:"addr" env-required:"true"`
+		PoolSize int    `yaml:"pool_size" env-default:"3"`
 	} `yaml:"broker"`
 
 	Database struct {
@@ -50,7 +49,7 @@ type Config struct {
 	} `yaml:"media"`
 
 	Static struct {
-		Url    string `yaml:"url" env-default:"/static/"`
+		URL    string `yaml:"url" env-default:"/static/"`
 		Folder string `yaml:"folder" env-required:"true"`
 	} `yaml:"static"`
 
