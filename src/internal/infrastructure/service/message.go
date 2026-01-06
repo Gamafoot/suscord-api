@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"suscord/internal/config"
 	"suscord/internal/domain/broker"
-	"suscord/internal/domain/broker/event"
+	brokerMsg "suscord/internal/domain/broker/message"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/domain/logger"
@@ -72,10 +72,7 @@ func (s *messageService) Create(ctx context.Context, userID, chatID uint, data *
 		message.Attachments = attachments
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	err = s.broker.Publish(brokerCtx, event.NewMessageCreated(message, s.cfg.Media.Url))
+	err = s.broker.Publish(ctx, brokerMsg.NewMessageCreated(message, s.cfg.Media.Url))
 	if err != nil {
 		s.logger.Err(err, logger.Field{
 			Key:   "message",
@@ -106,10 +103,7 @@ func (s *messageService) Update(ctx context.Context, userID, messageID uint, dat
 		return nil, err
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	err = s.broker.Publish(brokerCtx, event.NewMessageUpdated(message, s.cfg.Media.Url))
+	err = s.broker.Publish(ctx, brokerMsg.NewMessageUpdated(message, s.cfg.Media.Url))
 	if err != nil {
 		s.logger.Err(err, logger.Field{
 			Key:   "message",
@@ -140,10 +134,7 @@ func (s *messageService) Delete(ctx context.Context, userID, messageID uint) err
 		return err
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	err = s.broker.Publish(brokerCtx, event.NewMessageDeleted(message.ChatID, message.ID))
+	err = s.broker.Publish(ctx, brokerMsg.NewMessageDeleted(message.ChatID, message.ID, userID))
 	if err != nil {
 		s.logger.Err(err,
 			logger.Field{

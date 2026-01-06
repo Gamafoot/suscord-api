@@ -4,7 +4,7 @@ import (
 	"context"
 	"suscord/internal/config"
 	"suscord/internal/domain/broker"
-	"suscord/internal/domain/broker/event"
+	brokerMsg "suscord/internal/domain/broker/message"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/domain/logger"
@@ -64,9 +64,12 @@ func (s *chatService) GetOrCreatePrivateChat(ctx context.Context, input *entity.
 	}
 
 	if createChat {
-		brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
+		user, err := s.storage.Database().User().GetByID(ctx, input.UserID)
+		if err != nil {
+			return nil, err
+		}
 
-		err = s.broker.Publish(brokerCtx, event.NewChatUserJoined(chatID, input.UserID))
+		err = s.broker.Publish(ctx, brokerMsg.NewUserJoinedPrivateChat(chatID, user, s.cfg.Static.URL))
 		if err != nil {
 			s.logger.Err(err,
 				logger.Field{
@@ -80,11 +83,12 @@ func (s *chatService) GetOrCreatePrivateChat(ctx context.Context, input *entity.
 			)
 		}
 
-		cansel()
+		user, err = s.storage.Database().User().GetByID(ctx, input.FriendID)
+		if err != nil {
+			return nil, err
+		}
 
-		brokerCtx, cansel = context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-
-		err = s.broker.Publish(brokerCtx, event.NewChatUserJoined(chatID, input.FriendID))
+		err = s.broker.Publish(ctx, brokerMsg.NewUserJoinedPrivateChat(chatID, user, s.cfg.Static.URL))
 		if err != nil {
 			s.logger.Err(err,
 				logger.Field{
@@ -97,8 +101,6 @@ func (s *chatService) GetOrCreatePrivateChat(ctx context.Context, input *entity.
 				},
 			)
 		}
-
-		cansel()
 	}
 
 	return chat, nil
@@ -171,10 +173,7 @@ func (s *chatService) UpdateGroupChat(
 		return nil, err
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	err = s.broker.Publish(brokerCtx, event.NewChatUpdated(chat, s.cfg.Media.Url))
+	err = s.broker.Publish(ctx, brokerMsg.NewChatUpdated(chat, s.cfg.Media.Url))
 	if err != nil {
 		s.logger.Err(err,
 			logger.Field{
@@ -206,10 +205,7 @@ func (s *chatService) DeletePrivateChat(ctx context.Context, userID, chatID uint
 		return domainErrors.ErrForbidden
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	err = s.broker.Publish(brokerCtx, event.NewChatDeleted(chatID))
+	err = s.broker.Publish(ctx, brokerMsg.NewChatDeleted(chatID, chat.Name))
 	if err != nil {
 		s.logger.Err(err,
 			logger.Field{

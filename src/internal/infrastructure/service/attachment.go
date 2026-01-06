@@ -4,7 +4,7 @@ import (
 	"context"
 	"suscord/internal/config"
 	"suscord/internal/domain/broker"
-	"suscord/internal/domain/broker/event"
+	brokerMsg "suscord/internal/domain/broker/message"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/domain/logger"
 	"suscord/internal/domain/storage"
@@ -51,23 +51,18 @@ func (s *attachmentService) Delete(ctx context.Context, userID, attachmentID uin
 		return err
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	fields := []logger.Field{
-		logger.Field{
-			Key:   "chat_id",
-			Value: message.ChatID,
-		},
-		logger.Field{
-			Key:   "message_id",
-			Value: message.ID,
-		},
-	}
-
-	err = s.broker.Publish(brokerCtx, event.NewMessageDeleted(message.ChatID, message.ID))
+	err = s.broker.Publish(ctx, brokerMsg.NewMessageDeleted(message.ChatID, message.ID, userID))
 	if err != nil {
-		s.logger.Err(err, fields...)
+		s.logger.Err(err,
+			logger.Field{
+				Key:   "chat_id",
+				Value: message.ChatID,
+			},
+			logger.Field{
+				Key:   "message_id",
+				Value: message.ID,
+			},
+		)
 	}
 
 	return nil

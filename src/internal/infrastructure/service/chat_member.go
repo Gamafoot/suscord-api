@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"suscord/internal/config"
 	"suscord/internal/domain/broker"
-	"suscord/internal/domain/broker/event"
+	brokerMsg "suscord/internal/domain/broker/message"
 	"suscord/internal/domain/entity"
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/domain/logger"
@@ -93,16 +93,14 @@ func (s *chatMemberService) SendInvite(ctx context.Context, ownerID, chatID, use
 	}
 
 	uuid := uuid.New()
+	code := uuid.String()
 
-	err = s.storage.Cache().Set(ctx, uuid.String(), chatID, 10*time.Second)
+	err = s.storage.Cache().Set(ctx, code, chatID, 10*time.Second)
 	if err != nil {
 		return err
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	err = s.broker.Publish(brokerCtx, event.NewChatInvite(chatID, userID))
+	err = s.broker.Publish(ctx, brokerMsg.NewUserInvited(chatID, userID, code))
 	if err != nil {
 		s.logger.Err(err,
 			logger.Field{
@@ -135,10 +133,12 @@ func (s *chatMemberService) AcceptInvite(ctx context.Context, userID uint, code 
 		return err
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
+	user, err := s.storage.Database().User().GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
 
-	err = s.broker.Publish(brokerCtx, event.NewChatUserJoined(uint(chatID), userID))
+	err = s.broker.Publish(ctx, brokerMsg.NewUserJoinedGroupChat(uint(chatID), user, s.cfg.Media.Url))
 	if err != nil {
 		s.logger.Err(err,
 			logger.Field{
@@ -170,10 +170,7 @@ func (s *chatMemberService) LeaveFromChat(ctx context.Context, chatID, userID ui
 		return err
 	}
 
-	brokerCtx, cansel := context.WithTimeout(context.Background(), s.cfg.Broker.Timeout)
-	defer cansel()
-
-	err = s.broker.Publish(brokerCtx, event.NewChatUserLeave(chatID, userID))
+	err = s.broker.Publish(ctx, brokerMsg.NewUserLeft(chatID, userID))
 	if err != nil {
 		s.logger.Err(err,
 			logger.Field{
