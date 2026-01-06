@@ -9,6 +9,7 @@ type Message struct {
 	ID          uint          `json:"id"`
 	ChatID      uint          `json:"chat_id"`
 	UserID      uint          `json:"user_id"`
+	Type        string        `json:"type"`
 	Content     string        `json:"content"`
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`
@@ -22,11 +23,13 @@ func NewMessage(message *entity.Message, mediaURL string) Message {
 	}
 
 	return Message{
-		ID:        message.ID,
-		ChatID:    message.ChatID,
-		UserID:    message.UserID,
-		Content:   message.Content,
-		CreatedAt: message.CreatedAt,
-		UpdatedAt: message.UpdatedAt,
+		ID:          message.ID,
+		ChatID:      message.ChatID,
+		UserID:      message.UserID,
+		Type:        message.Type,
+		Content:     message.Content,
+		CreatedAt:   message.CreatedAt,
+		UpdatedAt:   message.UpdatedAt,
+		Attachments: attachments,
 	}
 }

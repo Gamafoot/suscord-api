@@ -1,7 +1,8 @@
-package event
+package message
 
 import (
-	"suscord/internal/domain/broker/event/model"
+	"suscord/internal/domain/broker/event"
+	"suscord/internal/domain/broker/message/model"
 	"suscord/internal/domain/entity"
 )
 
@@ -16,9 +17,5 @@ func NewChatUpdated(chat *entity.Chat, mediaURL string) ChatUpdated {
 }
 
 func (e ChatUpdated) EventName() string {
-	return "chat.udpated"
-}
-
-func (e ChatUpdated) AggregateID() uint {
-	return e.ID
+	return event.OnChatUpdated
 }
