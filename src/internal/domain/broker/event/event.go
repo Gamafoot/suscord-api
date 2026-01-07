@@ -1,9 +1,5 @@
 package event
 
-type Event interface {
-	EventName() string
-}
-
 const (
 	OnMessageCreated        = "chat.message.created"
 	OnMessageUpdated        = "chat.message.updated"
