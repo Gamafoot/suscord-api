@@ -42,7 +42,7 @@ func NewHttpServer(
 		echo: echo.New(),
 	}
 
-	server.echo.Static(server.cfg.Static.Url, server.cfg.Static.Folder)
+	server.echo.Static(server.cfg.Static.URL, server.cfg.Static.Folder)
 	server.echo.Static(server.cfg.Media.Url, server.cfg.Media.Folder)
 
 	template := &TemplateRenderer{
