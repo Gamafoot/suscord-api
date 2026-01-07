@@ -7,14 +7,14 @@ import (
 )
 
 type UserJoinedPrivateChat struct {
-	ChatID uint       `json:"chat_id"`
+	ChatID uint        `json:"chat_id"`
 	User   *model.User `json:"user"`
 }
 
 func NewUserJoinedPrivateChat(chatID uint, user *entity.User, mediaURL string) UserJoinedPrivateChat {
 	return UserJoinedPrivateChat{
 		ChatID: chatID,
-		User: model.NewUser(user, mediaURL),
+		User:   model.NewUser(user, mediaURL),
 	}
 }
 
