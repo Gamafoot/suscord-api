@@ -17,5 +17,7 @@ var (
 	ErrIsNotOwner             = errors.New("user is not owner")
 	ErrForbidden              = errors.New("no permissions")
 	ErrInvalidUserID          = errors.New("invalid user_id")
-	ErrInvalidFile            = errors.New("invalid file")
+
+	ErrInvalidFile = errors.New("invalid file")
+	ErrIsNotImage  = errors.New("is not image")
 )
