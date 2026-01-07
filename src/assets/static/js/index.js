@@ -35,12 +35,12 @@ function discordApp() {
         inputSensitivity: 0,
         audioContext: null,
         gainNode: null,
-	        callOfferTimer: null,
-	        incomingCallTimer: null,
-	
-	        _userIdKey(userId) {
-	            return userId == null ? null : String(userId);
-	        },
+        callOfferTimer: null,
+        incomingCallTimer: null,
+
+        _userIdKey(userId) {
+            return userId == null ? null : String(userId);
+        },
 
         rtcConfig: {
             iceServers: [
@@ -150,7 +150,7 @@ function discordApp() {
             if (!this.activeChat) return;
             this.loadingMessages = true;
             try {
-                const url = `/api/v1/chats/${this.activeChat}/messages?chat_id=${this.activeChat}&limit=50`;
+                const url = `/api/v1/chats/${this.activeChat}/messages?limit=50`;
                 const res = await fetch(url);
                 if (res.ok) {
                     const msgs = await res.json();
@@ -161,6 +161,8 @@ function discordApp() {
                         this.chatStates[this.activeChat].hasMoreMessages = msgs.length === 50;
                         this.chatStates[this.activeChat].isInitialLoad = false;
                     }
+                } else {
+                    location.href = "/";
                 }
             } catch (e) { console.error(e); }
             this.loadingMessages = false;
@@ -777,7 +779,7 @@ function discordApp() {
         // WebSocket
         connectWebSocket() {
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const urlWebsocket = `${protocol}//${location.host}/ws?session=${this.getCookie('session')}`;
+            const urlWebsocket = `ws://localhost:8000/ws?session=${this.getCookie('session')}`;
             this.ws = new WebSocket(urlWebsocket);
 
             this.ws.onopen = () => {
@@ -894,13 +896,13 @@ function discordApp() {
 
                 case 'delete_chat':
                     {
-                        if (msg.data.chat_id === this.activeChat) {
+                        if (msg.data.id === this.activeChat) {
                             this.onlineMembers = [];
                             this.activeChat = null;
                         }
 
-                        const chat = this.chats.find(c => c.id === msg.data.chat_id);
-                        this.chats = this.chats.filter(c => c.id !== msg.data.chat_id);
+                        const chat = this.chats.find(c => c.id === msg.data.id);
+                        this.chats = this.chats.filter(c => c.id !== msg.data.id);
                         this.showNotification(`Чат ${chat?.name || '"нет имени"'} удален`, '🗑️');
                     }
                     break;
@@ -911,7 +913,7 @@ function discordApp() {
 
                 case 'update_group_chat':
                     {
-                        const updatedChat = msg.data.chat;
+                        const updatedChat = msg.data;
                         const chatIndex = this.chats.findIndex(c => c.id === updatedChat.id);
                         if (chatIndex !== -1) {
                             this.chats[chatIndex] = { ...this.chats[chatIndex], ...updatedChat };
@@ -920,7 +922,7 @@ function discordApp() {
                         if (allChatIndex !== -1) {
                             this.allChats[allChatIndex] = { ...this.allChats[allChatIndex], ...updatedChat };
                         }
-                        this.showNotification(`Чат ${chat?.name} был обновлен`, '🔄');
+                        this.showNotification(`Чат ${updatedChat?.name} был обновлен`, '🔄');
                     }
                     break;
 
@@ -1216,37 +1218,37 @@ function discordApp() {
             }
         },
 
-	        upsertCallMember(client) {
-	            if (!client?.id) return;
-	
-	            const clientId = this._userIdKey(client.id);
-	            const idx = (this.callMembers || []).findIndex(c => this._userIdKey(c.id) === clientId);
-	            if (idx === -1) {
-	                this.callMembers = [...(this.callMembers || []), { volume: 100, muted: false, ...client }];
-	            } else {
-	                const next = [...this.callMembers];
-	                next[idx] = { volume: 100, muted: false, ...next[idx], ...client };
-	                this.callMembers = next;
-	            }
-	        },
-	
-	        setCallMembers(clients) {
-	            const prevById = new Map((this.callMembers || []).map(m => [this._userIdKey(m.id), m]));
-	            this.callMembers = (clients || []).map(c => {
-	                const prev = prevById.get(this._userIdKey(c.id));
-	                return {
-	                    volume: prev?.volume ?? 100,
-	                    muted: prev?.muted ?? false,
-	                    ...c
-	                };
-	            });
-	
-	            for (const member of this.callMembers) {
-	                if (member?.id && this._userIdKey(member.id) !== this._userIdKey(this.currentUser?.id)) {
-	                    this._applyRemoteAudioState(member.id);
-	                }
-	            }
-	        },
+        upsertCallMember(client) {
+            if (!client?.id) return;
+
+            const clientId = this._userIdKey(client.id);
+            const idx = (this.callMembers || []).findIndex(c => this._userIdKey(c.id) === clientId);
+            if (idx === -1) {
+                this.callMembers = [...(this.callMembers || []), { volume: 100, muted: false, ...client }];
+            } else {
+                const next = [...this.callMembers];
+                next[idx] = { volume: 100, muted: false, ...next[idx], ...client };
+                this.callMembers = next;
+            }
+        },
+
+        setCallMembers(clients) {
+            const prevById = new Map((this.callMembers || []).map(m => [this._userIdKey(m.id), m]));
+            this.callMembers = (clients || []).map(c => {
+                const prev = prevById.get(this._userIdKey(c.id));
+                return {
+                    volume: prev?.volume ?? 100,
+                    muted: prev?.muted ?? false,
+                    ...c
+                };
+            });
+
+            for (const member of this.callMembers) {
+                if (member?.id && this._userIdKey(member.id) !== this._userIdKey(this.currentUser?.id)) {
+                    this._applyRemoteAudioState(member.id);
+                }
+            }
+        },
 
         handleWebRTCSignaling(msg) {
             switch (msg.type) {
@@ -1325,83 +1327,83 @@ function discordApp() {
                 }
 
                 case 'call-stream': {
-	                    console.log("set stream", msg);
-	                    this.callUserStreams.set(msg.data.stream_id, this._userIdKey(msg.data.user_id));
-	                    this._attachRemoteStreamIfMapped(msg.data.stream_id);
-	                    break;
-	                }
+                    console.log("set stream", msg);
+                    this.callUserStreams.set(msg.data.stream_id, this._userIdKey(msg.data.user_id));
+                    this._attachRemoteStreamIfMapped(msg.data.stream_id);
+                    break;
+                }
             }
         },
 
-	        callUserStreams: new Map(),
-	
-	        _getRemoteState(userId) {
-	            const targetId = this._userIdKey(userId);
-	            const member = this.callMembers?.find(m => this._userIdKey(m.id) === targetId);
-	            return {
-	                volume: member?.volume ?? 100,
-	                muted: member?.muted ?? false
-	            };
-	        },
-	
-	        _applyRemoteAudioState(userId) {
-	            const key = this._userIdKey(userId);
-	            if (key == null) return;
-	            const audioEl = this.callAudioElsByUserId.get(key);
-	            if (!audioEl) return;
-	            const { volume, muted } = this._getRemoteState(userId);
-	            // HTMLMediaElement.volume must be in [0, 1], otherwise browsers throw IndexSizeError.
-	            const normalized = muted ? 0 : (Number(volume) / 100);
-	            const safe = Number.isFinite(normalized) ? Math.max(0, Math.min(1, normalized)) : 1;
-	            audioEl.volume = safe;
-	        },
+        callUserStreams: new Map(),
 
-	        _attachRemoteStreamIfMapped(streamId) {
-	            const userId = this.callUserStreams.get(streamId);
-	            if (userId == null || this._userIdKey(userId) === this._userIdKey(this.currentUser?.id)) return;
-	
-	            const stream = this.pendingRemoteStreamsByStreamId.get(streamId);
-	            if (!stream) return;
-	
-	            const userKey = this._userIdKey(userId);
-	            this.pendingRemoteStreamsByStreamId.delete(streamId);
-	            this.callRemoteStreamsByUserId.set(userKey, stream);
-	            this.ensureRemoteAudioByUserId(userKey);
-	        },
-	
-	        ensureRemoteAudioByUserId(userId) {
-	            const key = this._userIdKey(userId);
-	            if (key == null || key === this._userIdKey(this.currentUser?.id)) return;
-	
-	            let audioEl = this.callAudioElsByUserId.get(key);
-	            if (!audioEl) {
-	                audioEl = document.createElement('audio');
-	                audioEl.autoplay = true;
-	                audioEl.playsInline = true;
-	                audioEl.style.display = 'none';
-	                document.body.appendChild(audioEl);
-	                this.callAudioElsByUserId.set(key, audioEl);
-	            }
-	
-	            const stream = this.callRemoteStreamsByUserId.get(key);
-	            if (stream && audioEl.srcObject !== stream) {
-	                audioEl.srcObject = stream;
-	            }
-	            this._applyRemoteAudioState(key);
-	        },
-	
-	        removeRemoteAudioByUserId(userId) {
-	            const key = this._userIdKey(userId);
-	            if (key == null) return;
-	            const audioEl = this.callAudioElsByUserId.get(key);
-	            if (audioEl) {
-	                try { audioEl.pause(); } catch { }
-	                audioEl.srcObject = null;
-	                audioEl.remove();
-	                this.callAudioElsByUserId.delete(key);
-	            }
-	            this.callRemoteStreamsByUserId.delete(key);
-	        },
+        _getRemoteState(userId) {
+            const targetId = this._userIdKey(userId);
+            const member = this.callMembers?.find(m => this._userIdKey(m.id) === targetId);
+            return {
+                volume: member?.volume ?? 100,
+                muted: member?.muted ?? false
+            };
+        },
+
+        _applyRemoteAudioState(userId) {
+            const key = this._userIdKey(userId);
+            if (key == null) return;
+            const audioEl = this.callAudioElsByUserId.get(key);
+            if (!audioEl) return;
+            const { volume, muted } = this._getRemoteState(userId);
+            // HTMLMediaElement.volume must be in [0, 1], otherwise browsers throw IndexSizeError.
+            const normalized = muted ? 0 : (Number(volume) / 100);
+            const safe = Number.isFinite(normalized) ? Math.max(0, Math.min(1, normalized)) : 1;
+            audioEl.volume = safe;
+        },
+
+        _attachRemoteStreamIfMapped(streamId) {
+            const userId = this.callUserStreams.get(streamId);
+            if (userId == null || this._userIdKey(userId) === this._userIdKey(this.currentUser?.id)) return;
+
+            const stream = this.pendingRemoteStreamsByStreamId.get(streamId);
+            if (!stream) return;
+
+            const userKey = this._userIdKey(userId);
+            this.pendingRemoteStreamsByStreamId.delete(streamId);
+            this.callRemoteStreamsByUserId.set(userKey, stream);
+            this.ensureRemoteAudioByUserId(userKey);
+        },
+
+        ensureRemoteAudioByUserId(userId) {
+            const key = this._userIdKey(userId);
+            if (key == null || key === this._userIdKey(this.currentUser?.id)) return;
+
+            let audioEl = this.callAudioElsByUserId.get(key);
+            if (!audioEl) {
+                audioEl = document.createElement('audio');
+                audioEl.autoplay = true;
+                audioEl.playsInline = true;
+                audioEl.style.display = 'none';
+                document.body.appendChild(audioEl);
+                this.callAudioElsByUserId.set(key, audioEl);
+            }
+
+            const stream = this.callRemoteStreamsByUserId.get(key);
+            if (stream && audioEl.srcObject !== stream) {
+                audioEl.srcObject = stream;
+            }
+            this._applyRemoteAudioState(key);
+        },
+
+        removeRemoteAudioByUserId(userId) {
+            const key = this._userIdKey(userId);
+            if (key == null) return;
+            const audioEl = this.callAudioElsByUserId.get(key);
+            if (audioEl) {
+                try { audioEl.pause(); } catch { }
+                audioEl.srcObject = null;
+                audioEl.remove();
+                this.callAudioElsByUserId.delete(key);
+            }
+            this.callRemoteStreamsByUserId.delete(key);
+        },
 
         connectToCall(chatId) {
             if (this.client) {
@@ -1409,7 +1411,7 @@ function discordApp() {
             }
 
             const protocol = location.protocol.includes("https") ? "wss" : "ws";
-            const wsURL = `${protocol}://${location.hostname}:7001/ws`;
+            const wsURL = `ws://localhost:7001/ws`;
 
             this.signal = new Signal.IonSFUJSONRPCSignal(wsURL);
             this.client = new IonSDK.Client(this.signal);
@@ -1555,12 +1557,12 @@ function discordApp() {
                 }));
             }
 
-	            // Чистим удалённые аудио/участников
-	            for (const userId of Array.from(this.callAudioElsByUserId.keys())) {
-	                if (this._userIdKey(userId) !== this._userIdKey(this.currentUser?.id)) {
-	                    this.removeRemoteAudioByUserId(userId);
-	                }
-	            }
+            // Чистим удалённые аудио/участников
+            for (const userId of Array.from(this.callAudioElsByUserId.keys())) {
+                if (this._userIdKey(userId) !== this._userIdKey(this.currentUser?.id)) {
+                    this.removeRemoteAudioByUserId(userId);
+                }
+            }
             this.callMembers = [];
             this.callAudioElsByUserId.clear();
             this.callRemoteStreamsByUserId.clear();
@@ -1592,11 +1594,11 @@ function discordApp() {
             this._applyRemoteAudioState(userId);
         },
 
-	        toggleRemoteMute(userId) {
-	            const nextMuted = !this._getRemoteState(userId).muted;
-	            this.upsertCallMember({ id: userId, muted: nextMuted });
-	            this._applyRemoteAudioState(userId);
-	        },
+        toggleRemoteMute(userId) {
+            const nextMuted = !this._getRemoteState(userId).muted;
+            this.upsertCallMember({ id: userId, muted: nextMuted });
+            this._applyRemoteAudioState(userId);
+        },
 
         isRemoteMuted(userId) {
             return this._getRemoteState(userId).muted;
