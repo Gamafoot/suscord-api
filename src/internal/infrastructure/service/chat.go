@@ -154,16 +154,7 @@ func (s *chatService) UpdateGroupChat(
 	chatID uint,
 	data *entity.UpdateChat,
 ) (*entity.Chat, error) {
-	ok, err := s.storage.Database().ChatMember().IsMemberOfChat(ctx, userID, chatID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !ok {
-		return nil, domainErrors.ErrUserIsNotMemberOfChat
-	}
-
-	err = s.storage.Database().Chat().Update(ctx, chatID, data)
+	err := s.storage.Database().Chat().Update(ctx, chatID, data)
 	if err != nil {
 		return nil, err
 	}

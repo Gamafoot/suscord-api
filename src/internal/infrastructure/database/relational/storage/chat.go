@@ -89,13 +89,13 @@ func (s *chatStorage) Update(ctx context.Context, chatID uint, data *entity.Upda
 	updateData := make(map[string]any)
 
 	if data.Name != nil {
-		updateData["name"] = data.Name
+		updateData["name"] = *data.Name
 	}
 	if data.AvatarPath != nil {
-		updateData["avatar_path"] = data.AvatarPath
+		updateData["avatar_path"] = *data.AvatarPath
 	}
 
-	err := s.db.WithContext(ctx).Model(&model.Chat{}).Where("id = ?", chatID).Updates(data).Error
+	err := s.db.WithContext(ctx).Model(&model.Chat{}).Where("id = ?", chatID).Updates(updateData).Error
 	if err != nil {
 		return pkgErrors.WithStack(err)
 	}

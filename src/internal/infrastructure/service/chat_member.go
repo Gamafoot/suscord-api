@@ -37,6 +37,10 @@ func NewChatMemberService(
 	}
 }
 
+func (s *chatMemberService) IsMemberOfChat(ctx context.Context, userID, chatID uint) (bool, error) {
+	return s.storage.Database().ChatMember().IsMemberOfChat(ctx, userID, chatID)
+}
+
 func (s *chatMemberService) GetNonMembers(ctx context.Context, chatID, memberID uint) ([]*entity.User, error) {
 	ok, err := s.storage.Database().ChatMember().IsMemberOfChat(ctx, memberID, chatID)
 	if err != nil {

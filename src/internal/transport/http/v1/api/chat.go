@@ -117,26 +117,31 @@ func (h *handler) UpdateGroupChat(c echo.Context) error {
 		return utils.NewErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
 
-	ok := utils.FilenameValidate(file.Filename, h.cfg.Media.AllowedMedia)
-	if !ok {
-		return utils.NewErrorResponse(c, http.StatusBadRequest, "invalid file")
-	}
-
-	ok = utils.IsImage(file.Filename)
-	if !ok {
-		return utils.NewErrorResponse(c, http.StatusBadRequest, "file is not image")
-	}
-
 	userID := c.Get("user_id").(uint)
 
-	var avatarPath *string
+	isMember, err := h.service.ChatMember().IsMemberOfChat(c.Request().Context(), userID, chatID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return utils.NewErrorResponse(c, http.StatusForbidden, domainErrors.ErrUserIsNotMemberOfChat.Error())
+	}
 
+	var avatarPath *string
 	if file != nil {
-		filepath, err := h.service.File().UploadFile(file, "chats/avatars")
+		if !utils.FilenameValidate(file.Filename, h.cfg.Media.AllowedMedia) {
+			return utils.NewErrorResponse(c, http.StatusBadRequest, domainErrors.ErrInvalidFile.Error())
+		}
+
+		if !utils.IsImage(file.Filename) {
+			return utils.NewErrorResponse(c, http.StatusBadRequest, domainErrors.ErrIsNotImage.Error())
+		}
+
+		path, err := h.service.File().UploadFile(file, "chats/avatars")
 		if err != nil {
 			return err
 		}
-		avatarPath = &filepath
+		avatarPath = &path
 	}
 
 	data := &entity.UpdateChat{
