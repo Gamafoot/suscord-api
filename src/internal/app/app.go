@@ -19,12 +19,12 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	broker, err := rabbitmq.NewBroker(cfg.Broker.Addr, cfg.Broker.PoolSize)
+	logger, err := logger.NewLogger(cfg.Logger.Level, cfg.Logger.Folder)
 	if err != nil {
 		return nil, err
 	}
 
-	logger, err := logger.NewLogger(cfg.Logger.Level, cfg.Logger.Folder)
+	broker, err := rabbitmq.NewBroker(cfg.Broker.Addr, cfg.Broker.PoolSize, logger)
 	if err != nil {
 		return nil, err
 	}
