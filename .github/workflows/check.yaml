@@ -25,6 +25,7 @@ jobs:
           args: --timeout=5m -D errcheck
 
   test:
+    needs: [lint]
     runs-on: ubuntu-22.04
     defaults:
       run:
