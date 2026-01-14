@@ -11,12 +11,12 @@ import (
 func (mw *Middleware) RequiredAuth() func(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			ctx := c.Request().Context()
-
 			cookie, err := c.Cookie("session")
 			if err != nil {
 				return c.Redirect(http.StatusFound, "/auth")
 			}
+
+			ctx := c.Request().Context()
 
 			session, err := mw.storage.Database().Session().GetByUUID(ctx, cookie.Value)
 			if err != nil {

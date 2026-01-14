@@ -42,7 +42,6 @@ func (s *messageStorage) GetMessages(
 		return nil, pkgErrors.WithStack(err)
 	}
 
-	// конвертация в domain
 	result := make([]*entity.Message, len(messages))
 	for i, m := range messages {
 		result[i] = messageModelToDomain(m)

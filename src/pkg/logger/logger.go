@@ -24,7 +24,7 @@ func NewLogger(level string, folderPath string) (*Logger, error) {
 
 	_, err := os.Stat(folderPath)
 	if pkgErrors.Is(err, os.ErrNotExist) {
-		if err = os.MkdirAll(folderPath, 0755); err != nil {
+		if err = os.MkdirAll(folderPath, os.ModePerm); err != nil {
 			return nil, pkgErrors.WithStack(err)
 		}
 	}

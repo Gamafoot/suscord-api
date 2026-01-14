@@ -3,11 +3,12 @@ package middleware
 import (
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	domainErrors "suscord/internal/domain/errors"
+	"suscord/internal/transport/utils"
 
 	"github.com/labstack/echo/v4"
-	pkgErrors "github.com/pkg/errors"
 )
 
 func (mw *Middleware) AllowedFileExtentions() echo.MiddlewareFunc {
@@ -17,10 +18,10 @@ func (mw *Middleware) AllowedFileExtentions() echo.MiddlewareFunc {
 
 			if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
 				contentType := c.Request().Header.Get("Content-Type")
-				if contentType == "multipart/form-data" {
+				if strings.Contains(contentType, "multipart/form-data") {
 					file, err := c.FormFile("file")
 					if err != nil {
-						return pkgErrors.WithStack(domainErrors.ErrInvalidFile)
+						return utils.NewErrorResponse(c, http.StatusBadRequest, domainErrors.ErrInvalidFile.Error())
 					}
 
 					fileExt := filepath.Ext(file.Filename)
@@ -33,7 +34,7 @@ func (mw *Middleware) AllowedFileExtentions() echo.MiddlewareFunc {
 						}
 					}
 					if !ok {
-						return pkgErrors.WithStack(domainErrors.ErrInvalidFile)
+						return utils.NewErrorResponse(c, http.StatusBadRequest, domainErrors.ErrInvalidFileExtention.Error())
 					}
 				}
 			}

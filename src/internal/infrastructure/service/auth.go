@@ -76,6 +76,7 @@ func (s *authService) createSession(ctx context.Context, userID uint) (string, e
 			if err != nil {
 				return "", err
 			}
+			return uuid, nil
 		}
 		return "", err
 	} else {
