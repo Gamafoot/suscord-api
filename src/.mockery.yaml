@@ -1,0 +1,48 @@
+with-expecter: true
+mockname: "Mock{{.InterfaceName}}"
+outpkg: "mocks"
+filename: "mock_{{ base .InterfaceFile }}"
+inpackage-suffix: false
+
+# Чтобы mockery не заходил в уже сгенерированные пакеты `mocks`.
+exclude:
+  - "mocks"
+
+packages:
+  "suscord/internal/domain/service":
+    config:
+      dir: "internal/domain/service/mocks"
+      all: true
+      recursive: true
+
+  # В этом пакете нужен только интерфейс Storage из `storage.go`.
+  # Рекурсия выключена, поэтому интерфейсы из `storage/*` сюда не попадут.
+  "suscord/internal/domain/storage":
+    config:
+      dir: "internal/domain/storage/mocks"
+      all: true
+      recursive: false
+
+  "suscord/internal/domain/storage/database":
+    config:
+      dir: "internal/domain/storage/database/mocks"
+      all: true
+      recursive: true
+
+  "suscord/internal/domain/storage/file":
+    config:
+      dir: "internal/domain/storage/file/mocks"
+      all: true
+      recursive: true
+
+  "suscord/internal/domain/storage/cache":
+    config:
+      dir: "internal/domain/storage/cache/mocks"
+      all: true
+      recursive: true
+  
+  "suscord/internal/domain/broker":
+    config:
+      dir: "internal/domain/broker/mocks"
+      all: true
+      recursive: false
