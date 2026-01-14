@@ -23,10 +23,5 @@ func FilenameValidate(filename string, allowedMedia []string) bool {
 func IsImage(filename string) bool {
 	ext := filepath.Ext(strings.ToLower(filename))
 	mimetype := mime.TypeByExtension(ext)
-
-	if strings.HasPrefix(mimetype, "image") {
-		return true
-	}
-
-	return false
+	return strings.HasPrefix(mimetype, "image")
 }

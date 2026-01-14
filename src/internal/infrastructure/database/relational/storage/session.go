@@ -91,10 +91,3 @@ func sessionModelToDomain(session *model.Session) *entity.Session {
 		UserID: session.UserID,
 	}
 }
-
-func sessionDomainToModel(session *entity.Session) *model.Session {
-	return &model.Session{
-		UUID:   session.UUID,
-		UserID: session.UserID,
-	}
-}

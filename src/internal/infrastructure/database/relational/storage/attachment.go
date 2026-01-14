@@ -6,7 +6,6 @@ import (
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/infrastructure/database/relational/model"
 
-	"github.com/pkg/errors"
 	pkgErrors "github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -30,7 +29,7 @@ func (s *attachmentStorage) GetByID(ctx context.Context, attachmentID uint) (*en
 func (s *attachmentStorage) GetByMessageID(ctx context.Context, messageID uint) ([]*entity.Attachment, error) {
 	attachments := make([]*model.Attachment, 0)
 	if err := s.db.WithContext(ctx).Find(&attachments, "message_id = ?", messageID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if pkgErrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domainErrors.ErrRecordNotFound
 		}
 		return nil, pkgErrors.WithStack(err)
@@ -83,15 +82,6 @@ func (s *attachmentStorage) IsOwner(ctx context.Context, userID, attachmentID ui
 
 func attachmentModelToDomain(attachment *model.Attachment) *entity.Attachment {
 	return &entity.Attachment{
-		ID:       attachment.ID,
-		FilePath: attachment.FilePath,
-		FileSize: attachment.FileSize,
-		MimeType: attachment.MimeType,
-	}
-}
-
-func attachmentDomainToModel(attachment *entity.Attachment) *model.Attachment {
-	return &model.Attachment{
 		ID:       attachment.ID,
 		FilePath: attachment.FilePath,
 		FileSize: attachment.FileSize,

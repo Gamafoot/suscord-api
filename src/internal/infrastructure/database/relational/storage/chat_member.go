@@ -6,7 +6,6 @@ import (
 	domainErrors "suscord/internal/domain/errors"
 	"suscord/internal/infrastructure/database/relational/model"
 
-	"github.com/pkg/errors"
 	pkgErrors "github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -32,7 +31,7 @@ func (s *chatMemberStorage) GetChatMembers(ctx context.Context, chatID uint) ([]
 	);`
 
 	if err := s.db.WithContext(ctx).Raw(sql, chatID).Scan(&users).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if pkgErrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domainErrors.ErrRecordNotFound
 		}
 		return nil, pkgErrors.WithStack(err)
@@ -59,7 +58,7 @@ func (s *chatMemberStorage) GetNonMembers(ctx context.Context, chatID uint) ([]*
 	);`
 
 	if err := s.db.WithContext(ctx).Raw(sql, chatID).Scan(&users).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if pkgErrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domainErrors.ErrRecordNotFound
 		}
 		return nil, pkgErrors.WithStack(err)

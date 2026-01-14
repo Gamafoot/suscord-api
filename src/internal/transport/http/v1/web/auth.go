@@ -9,7 +9,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
-	"github.com/pkg/errors"
 	pkgErrors "github.com/pkg/errors"
 )
 
@@ -23,7 +22,7 @@ func (h *handler) AuthPage(c echo.Context) error {
 		uuid, err := h.login(c)
 		if err != nil {
 			data := make(map[string]string, 0)
-			if errors.Is(err, domainErrors.ErrInvalidLoginOrPassword) {
+			if pkgErrors.Is(err, domainErrors.ErrInvalidLoginOrPassword) {
 				data["error"] = "Неверный логин или пароль. Попробуйте еще раз."
 				return c.Render(http.StatusOK, "auth.html", data)
 			}
