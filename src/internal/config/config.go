@@ -11,28 +11,28 @@ import (
 
 type Config struct {
 	Server struct {
-		Port    string        `yaml:"port" env-default:"8000"`
-		Timeout time.Duration `yaml:"timeout" env-default:"10s"`
+		Port    string        `yaml:"port" env:"SERVER_PORT" env-default:"8000"`
+		Timeout time.Duration `yaml:"timeout" env:"SERVER_TIMEOUT" env-default:"10s"`
 	} `yaml:"server"`
 
 	Broker struct {
-		Addr     string `yaml:"addr" env-required:"true"`
-		PoolSize int    `yaml:"pool_size" env-default:"3"`
+		Addr     string `yaml:"addr" env:"BROKER_ADDR" env-required:"true"`
+		PoolSize int    `yaml:"pool_size" env:"BROKER_POOL_SIZE" env-default:"3"`
 	} `yaml:"broker"`
 
 	Database struct {
-		URL      string `yaml:"url" env-required:"true"`
-		LogLevel string `yaml:"log_level"`
+		URL      string `yaml:"url" env:"DB_URL" env-required:"true"`
+		LogLevel string `yaml:"log_level" env:"DB_LOG_LEVEL"`
 	} `yaml:"database"`
 
 	Redis struct {
-		Addr     string `yaml:"addr" env-required:"true"`
-		Password string `yaml:"password"`
-		DB       int    `yaml:"db" env-default:"0"`
+		Addr     string `yaml:"addr" env:"REDIS_ADDR" env-required:"true"`
+		Password string `yaml:"password" env:"REDIS_PASS"`
+		DB       int    `yaml:"db" env:"REDIS_DB" env-default:"0"`
 	} `yaml:"redis"`
 
 	Hash struct {
-		Salt string `yaml:"salt" env-required:"true"`
+		Salt string `yaml:"salt" env:"HASH_SALT" env-required:"true"`
 	} `yaml:"hash"`
 
 	CORS struct {
@@ -42,20 +42,20 @@ type Config struct {
 	} `yaml:"cors"`
 
 	Media struct {
+		Url          string   `yaml:"url" env:"MEDIA_URL" env-default:"/media/"`
+		Folder       string   `yaml:"folder" env:"MEDIA_FOLDER" env-required:"true"`
 		AllowedMedia []string `yaml:"allowed_media" env-required:"true"`
-		Url          string   `yaml:"url" env-default:"/media/"`
-		Folder       string   `yaml:"folder" env-required:"true"`
-		MaxSize      string   `yaml:"max_size" env-default:"500M"`
+		MaxSize      string   `yaml:"max_size" env:"MEDIA_MAX_SIZE" env-default:"500M"`
 	} `yaml:"media"`
 
 	Static struct {
-		URL    string `yaml:"url" env-default:"/static/"`
-		Folder string `yaml:"folder" env-required:"true"`
+		URL    string `yaml:"url" env:"STATIC_URL" env-default:"/static/"`
+		Folder string `yaml:"folder" env:"STATIC_FOLDER" env-required:"true"`
 	} `yaml:"static"`
 
 	Logger struct {
-		Level  string `yaml:"level" env-default:"info"`
-		Folder string `yaml:"folder" env-default:"assets/log"`
+		Level  string `yaml:"level" env:"LOGGER_LEVEL" env-default:"info"`
+		Folder string `yaml:"folder" env:"LOGGER_FOLDER" env-default:"assets/log"`
 	} `yaml:"logger"`
 }
 
